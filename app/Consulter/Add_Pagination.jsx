@@ -552,25 +552,9 @@ export default function PatientDashboard() {
   };
 
   async function handleAddPatient(data) {
-    console.log(JSON.stringify(data));
-
-    // ❌ Replace alert with SweetAlert
-    if (!data.nom) {
-      Swal.fire({
-        icon: "warning",
-        title: "Champ requis",
-        text: "Le nom du patient est obligatoire.",
-      });
-      return { success: false, error: "Nom requis" };
+    if (!data.nom || !data.nom.trim()) {
+      return { success: false, error: "Le nom du patient est obligatoire." };
     }
-
-    setConfig({
-      title: "Nouveau patient ajouté !",
-      description: "Le patient a été enregistré avec succès.",
-    });
-
-    setsuccessopen(true);
-    setload(true);
 
     try {
       const res = await fetch("/api/patients", {
@@ -580,28 +564,35 @@ export default function PatientDashboard() {
       });
 
       if (!res.ok) {
-        setsuccessopen(false);
-        throw new Error("Erreur lors de la création du patient");
+        const errJson = await res.json().catch(() => ({}));
+        const errMsg =
+          errJson.error || "Erreur lors de la création du patient.";
+        throw new Error(errMsg);
       }
 
       const created = await res.json();
       setload(false);
+      setConfig({
+        title: "Nouveau patient ajouté !",
+        description: "Le patient a été enregistré avec succès.",
+      });
+      setsuccessopen(true);
 
       setIsAddOpen(false);
+      setSearch("");
+      if (created?.id) {
+        setlastid(created.id);
+        setSelectedPatient(created);
+      }
       await fetchPatients();
 
       return { success: true, data: created }; // ✅ return success
     } catch (err) {
-      console.error(err);
-
-      Swal.fire({
-        icon: "error",
-        title: "Erreur",
-        text: "Erreur lors de la création du patient.",
-        confirmButtonColor: "#d33",
-      });
-
-      return { success: false, error: err.message }; // ✅ return error
+      console.error("❌ handleAddPatient error:", err);
+      return {
+        success: false,
+        error: err.message || "Erreur lors de la création du patient.",
+      };
     }
   }
 

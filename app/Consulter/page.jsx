@@ -85,6 +85,7 @@ export default function PatientDashboard() {
   const [DateTimeModal, setDataTimeModel] = useState(false);
   const [viderForm, setViderForm] = useState(false);
   const [openAddMeasure, setOpenAddMeasure] = useState(false);
+  const [openAttachModal, setOpenAttachModal] = useState(false);
   const [Age, setAge] = useState();
   const [date, setDate] = useState(
     new Date().toISOString().split("T")[0], // "YYYY-MM-DD"
@@ -208,7 +209,9 @@ export default function PatientDashboard() {
       formData.rendezVousDate || // ✅ new
       formData?.ordonnance?.items?.length > 0 ||
       formData?.bilanRecip?.items?.length > 0 ||
-      formData?.justification?.trim();
+      formData?.justification?.trim?.() ||
+      (typeof formData?.justification === "object" && formData?.justification?.texte?.trim?.()) ||
+      (Array.isArray(formData?.radios) && formData.radios.length > 0);
 
     if (!hasData) {
       // ❌ Replace alert with SweetAlert
@@ -255,7 +258,14 @@ export default function PatientDashboard() {
 
           // ✅ New fields
           motifDeConsultation: formData.motifDeConsultation?.trim() || null,
-          justification: formData.justification?.trim() || null,
+          justification:
+            typeof formData.justification === "string"
+              ? formData.justification.trim()
+              : null,
+          justificationRecord:
+            typeof formData.justification === "object" && formData.justification !== null
+              ? formData.justification
+              : null,
           perimetreCranien: formData.perimetreCranien || null,
           rendezVousDate: formData.rendezVousDate || null,
           rendezVousDescription: formData.rendezVousDescription?.trim() || null,
@@ -279,11 +289,20 @@ export default function PatientDashboard() {
             formData?.bilanRecip?.items?.length > 0
               ? {
                   items: formData.bilanRecip.items.map((item) => ({
-                    bilanId: item.id,
+                    bilanId: item.id || item.bilanId,
                     resultat: null,
                     remarque: null,
                   })),
                 }
+              : undefined,
+
+          // ✅ Radios
+          radios:
+            Array.isArray(formData?.radios) && formData.radios.length > 0
+              ? formData.radios.map((r) => ({
+                  description: r.description,
+                  fichier: r.fichier,
+                }))
               : undefined,
         }),
       });
@@ -331,16 +350,18 @@ export default function PatientDashboard() {
     console.log("New consultation data:" + JSON.stringify(NewConsultationData));
     addconsultationfunction(NewConsultationData);
   }, [NewConsultationData]);
-  async function fetchPatients() {
+  async function fetchPatients(selectId = null) {
     try {
       const res = await fetch("/api/patients");
       if (!res.ok) throw new Error("Failed to fetch patients");
       const data = await res.json();
       setPatients(data);
 
-      // If no patient selected, select the first one
-      if (!selectedPatient && data.length > 0) {
-        fetchPatientById(data[0].id);
+      const targetId =
+        selectId ||
+        (!selectedPatient && data.length > 0 ? data[0].id : null);
+      if (targetId) {
+        await fetchPatientById(targetId);
       }
     } catch (error) {
       console.error("❌ Error fetching patients:", error);
@@ -616,23 +637,9 @@ export default function PatientDashboard() {
   async function handleAddPatient(data) {
     console.log(JSON.stringify(data));
 
-    // ❌ Replace alert with SweetAlert
-    if (!data.nom) {
-      Swal.fire({
-        icon: "warning",
-        title: "Champ requis",
-        text: "Le nom du patient est obligatoire.",
-      });
-      return { success: false, error: "Nom requis" };
+    if (!data.nom || !data.nom.trim()) {
+      return { success: false, error: "Le nom du patient est obligatoire." };
     }
-
-    setConfig({
-      title: "Nouveau patient ajouté !",
-      description: "Le patient a été enregistré avec succès.",
-    });
-
-    setsuccessopen(true);
-    setload(true);
 
     try {
       const res = await fetch("/api/patients", {
@@ -642,28 +649,35 @@ export default function PatientDashboard() {
       });
 
       if (!res.ok) {
-        setsuccessopen(false);
-        throw new Error("Erreur lors de la création du patient");
+        const errJson = await res.json().catch(() => ({}));
+        const errMsg =
+          errJson.error || "Erreur lors de la création du patient.";
+        throw new Error(errMsg);
       }
 
       const created = await res.json();
-      setload(false);
+      console.log("✅ Patient créé:", created);
+
+      setConfig({
+        title: "Nouveau patient ajouté !",
+        description: "Le patient a été enregistré avec succès.",
+      });
+      setsuccessopen(true);
 
       setIsAddOpen(false);
-      await fetchPatients();
-
+      setSearch("");
+      await fetchPatients(created?.id);
+      if (created?.id) {
+        await fetchPatientById(created.id);
+        setViderForm(true);
+      }
       return { success: true, data: created }; // ✅ return success
     } catch (err) {
-      console.error(err);
-
-      Swal.fire({
-        icon: "error",
-        title: "Erreur",
-        text: "Erreur lors de la création du patient.",
-        confirmButtonColor: "#d33",
-      });
-
-      return { success: false, error: err.message }; // ✅ return error
+      console.error("❌ handleAddPatient error:", err);
+      return {
+        success: false,
+        error: err.message || "Erreur lors de la création du patient.",
+      };
     }
   }
 
@@ -969,7 +983,15 @@ export default function PatientDashboard() {
                 <Plus size={18} />
                 Nouvelle Consultation
               </Button>
-            ) : selectedtab === "+ Nouvelle Consultation" ? null : null}
+            ) : selectedtab === "+ Nouvelle Consultation" ? (
+              <Button
+                onClick={() => setOpenAttachModal(true)}
+                className="bg-[var(--color-600)] hover:bg-[var(--color-700)] text-white px-5 py-2 rounded-xl font-semibold flex items-center gap-2 shadow-md transition"
+              >
+                <Plus size={18} />
+                Ajouter
+              </Button>
+            ) : null}
           </motion.div>
         </motion.div>
 
@@ -1228,6 +1250,8 @@ export default function PatientDashboard() {
                   selectedPatient={selectedPatient}
                   setViderForm={setViderForm}
                   viderForm={viderForm}
+                  openAttachModal={openAttachModal}
+                  setOpenAttachModal={setOpenAttachModal}
                 />
               )}
               {selectedtab === "Analyses et Résultats" && (

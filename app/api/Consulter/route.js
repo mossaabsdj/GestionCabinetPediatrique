@@ -201,6 +201,19 @@ export async function POST(req) {
               },
             }
           : undefined,
+
+        // ✅ Radios
+        radios: Array.isArray(data.radios) && data.radios.length > 0
+          ? {
+              create: data.radios
+                .filter((r) => r && (r.fichier || r.description))
+                .map((r) => ({
+                  patientId: Number(data.patientId),
+                  description: r.description || null,
+                  fichier: r.fichier || null,
+                })),
+            }
+          : undefined,
       },
       include: {
         ordonnance: { include: { items: true } },
@@ -208,6 +221,7 @@ export async function POST(req) {
         justificationRecord: true,
         courbeInfo: true,
         rendezVous: true,
+        radios: true,
       },
     });
 
@@ -250,6 +264,7 @@ export async function PUT(req) {
       rendezVousId,
       rendezVousDate,
       rendezVousDescription,
+      radios,
     } = data;
 
     if (!id) {
@@ -370,6 +385,48 @@ export async function PUT(req) {
       }
     }
 
+    // ✅ Handle Radios
+    if (Array.isArray(radios)) {
+      const existingRadios = await prisma.radio.findMany({
+        where: { consultationId: Number(id) },
+        select: { id: true },
+      });
+      const keptIds = radios.filter((r) => r.id).map((r) => Number(r.id));
+      const toDelete = existingRadios.filter((r) => !keptIds.includes(r.id));
+      for (const del of toDelete) {
+        await prisma.radio.delete({ where: { id: del.id } });
+      }
+
+      for (const r of radios) {
+        if (!r.id && (r.fichier || r.description)) {
+          const resolvedPatId = patientId
+            ? Number(patientId)
+            : (
+                await prisma.consultation.findUnique({
+                  where: { id: Number(id) },
+                  select: { patientId: true },
+                })
+              )?.patientId;
+          await prisma.radio.create({
+            data: {
+              consultationId: Number(id),
+              patientId: Number(resolvedPatId),
+              description: r.description || null,
+              fichier: r.fichier || null,
+            },
+          });
+        } else if (r.id) {
+          await prisma.radio.update({
+            where: { id: Number(r.id) },
+            data: {
+              description: r.description || null,
+              fichier: r.fichier || null,
+            },
+          });
+        }
+      }
+    }
+
     // ✅ Update consultation with new data
     const updated = await prisma.consultation.update({
       where: { id: Number(id) },
@@ -379,6 +436,7 @@ export async function PUT(req) {
         rendezVous: true,
         justificationRecord: true,
         courbeInfo: true,
+        radios: true,
         ordonnance: {
           include: {
             items: {

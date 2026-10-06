@@ -43,7 +43,10 @@ export default function PrescriptionModal({
   onOpenChange,
   onsave,
   selectedPatient,
+  initialData = null,
+  initialTab = "ordonnance",
 }) {
+  const [activeTab, setActiveTab] = useState(initialTab || "ordonnance");
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState([]);
   const [selectedMed, setSelectedMed] = useState(null);
@@ -332,7 +335,7 @@ export default function PrescriptionModal({
       items: labItems,
     };
     const selectedJustifObj = justifTypes.find(
-      (t) => t.id === justifType || t.id === Number(justifType)
+      (t) => t.id === justifType || t.id === Number(justifType),
     );
     const payload = {
       ordonnance: ordonnance,
@@ -351,7 +354,8 @@ export default function PrescriptionModal({
   const totalMeds = prescriptionItems.length;
 
   useEffect(() => {
-    if (type && type !== "autre") {
+    if (!type) return;
+    if (type !== "autre") {
       const selectedtyoe = ordTypes.filter((o) => o.id === type);
       const meds =
         selectedtyoe[0]?.items.map((med) => ({
@@ -377,7 +381,8 @@ export default function PrescriptionModal({
     }
   }, [labItems]);
   useEffect(() => {
-    if (SelectedbilanType && SelectedbilanType !== "autre") {
+    if (!SelectedbilanType) return;
+    if (SelectedbilanType !== "autre") {
       const selectedtyoe = bilanTypes.filter((o) => o.id === SelectedbilanType);
       const labs =
         selectedtyoe[0]?.items.map((lab) => ({
@@ -391,10 +396,34 @@ export default function PrescriptionModal({
     }
   }, [SelectedbilanType, bilanTypes]);
 
+  // Synchronize initial data and tab when dialog opens
+  useEffect(() => {
+    if (open) {
+      if (initialTab) {
+        setActiveTab(initialTab);
+      }
+      if (initialData) {
+        if (Array.isArray(initialData.ordonnance?.items)) {
+          setPrescriptionItems(initialData.ordonnance.items);
+        }
+        if (Array.isArray(initialData.bilanRecip?.items)) {
+          setLabItems(initialData.bilanRecip.items);
+        }
+        if (initialData.justification) {
+          const txt =
+            typeof initialData.justification === "string"
+              ? initialData.justification
+              : initialData.justification.texte || "";
+          setJustifText(txt);
+        }
+      }
+    }
+  }, [open, initialData, initialTab]);
+
   useEffect(() => {
     if (justifType && justifType !== "autre") {
       const selected = justifTypes.find(
-        (t) => t.id === justifType || t.id === Number(justifType)
+        (t) => t.id === justifType || t.id === Number(justifType),
       );
       if (selected) {
         setJustifText(selected.texte || "");
@@ -575,7 +604,7 @@ export default function PrescriptionModal({
       const nextConsultationId = (data.lastConsultationId || 0) + 1;
       const nextJustificationId = (data.lastJustificationId || 0) + 1;
       const selectedObj = justifTypes.find(
-        (t) => t.id === justifType || t.id === Number(justifType)
+        (t) => t.id === justifType || t.id === Number(justifType),
       );
 
       // 🖨️ Send to printer
@@ -704,12 +733,12 @@ export default function PrescriptionModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl min-w-4xl p-0 max-h-[97vh] overflow-hidden">
         <motion.div
-          className="p-6"
+          className="p-4 "
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3 }}
         >
-          <Tabs defaultValue="ordonnance">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid grid-cols-3 bg-gradient-to-r from-[var(--color-100)] to-[var(--color-50)] text-[var(--color-700)] rounded-xl p-1 shadow-sm">
               <TabsTrigger
                 value="ordonnance"
@@ -1523,7 +1552,9 @@ export default function PrescriptionModal({
                                 {t.nom}
                               </SelectItem>
                             ))}
-                            <SelectItem value="autre">Autre / Personnalisé</SelectItem>
+                            <SelectItem value="autre">
+                              Autre / Personnalisé
+                            </SelectItem>
                           </SelectContent>
                         </Select>
                       </div>

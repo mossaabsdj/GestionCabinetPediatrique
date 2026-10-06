@@ -217,8 +217,9 @@ export default function PatientsPage() {
 
   // ===== Add new patient API =====
   async function handleAddPatient(data) {
-    console.log(JSON.stringify(data));
-    if (!data.nom) return alert("Le nom est requis");
+    if (!data.nom || !data.nom.trim()) {
+      return { success: false, error: "Le nom du patient est obligatoire." };
+    }
 
     try {
       const res = await fetch("/api/patients", {
@@ -226,20 +227,24 @@ export default function PatientsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error("Erreur lors de la création");
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        const errMsg =
+          errJson.error || "Erreur lors de la création du patient.";
+        throw new Error(errMsg);
+      }
+
       const created = await res.json();
       setPatients((prev) => [created, ...prev]);
-      setNewPatient({
-        nom: "",
-        telephone: "",
-        adresse: "",
-        antecedents: "",
-        groupeSanguin: "",
-      });
       setIsAddOpen(false);
+      return { success: true, data: created };
     } catch (err) {
-      console.error(err);
-      alert("Erreur lors de la création du patient");
+      console.error("❌ handleAddPatient error:", err);
+      return {
+        success: false,
+        error: err.message || "Erreur lors de la création du patient.",
+      };
     }
   }
 
