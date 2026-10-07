@@ -154,7 +154,10 @@ export async function POST(req) {
     const patient = await prisma.patient.create({
       data: {
         nom: nom.trim(),
-        age: age !== undefined && age !== null && age !== "" ? parseInt(age) : null,
+        age:
+          age !== undefined && age !== null && age !== ""
+            ? parseInt(age)
+            : null,
         sexe: sexe && sexe.trim() ? sexe.trim() : "Non spécifié",
         telephone: telephone ? telephone.trim() : null,
         adresse: adresse ? adresse.trim() : null,
@@ -223,8 +226,7 @@ export async function PUT(req) {
     }
 
     if (age !== undefined) {
-      dataToUpdate.age =
-        age !== null && age !== "" ? parseInt(age) : null;
+      dataToUpdate.age = age !== null && age !== "" ? parseInt(age) : null;
     }
 
     if (telephone !== undefined) {
@@ -250,7 +252,11 @@ export async function PUT(req) {
           : null;
     }
 
-    if (dateDeNaissance !== undefined && dateDeNaissance !== null && dateDeNaissance !== "") {
+    if (
+      dateDeNaissance !== undefined &&
+      dateDeNaissance !== null &&
+      dateDeNaissance !== ""
+    ) {
       const parsedDate = new Date(dateDeNaissance);
       if (!isNaN(parsedDate.getTime())) {
         dataToUpdate.dateDeNaissance = parsedDate;

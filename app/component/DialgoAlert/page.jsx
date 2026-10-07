@@ -37,4 +37,3 @@ export default function DialogAlert({ open, onClose, title, message }) {
     </Dialog>
   );
 }
-

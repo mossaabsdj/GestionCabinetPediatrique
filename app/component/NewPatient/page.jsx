@@ -119,17 +119,13 @@ export default function AddPatientModal({ open, onClose, onAdd }) {
     <>
       <Dialog open={open} onOpenChange={handleClose}>
         <DialogContent className="max-w-2xl max-h-[97vh] rounded-2xl p-6 shadow-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-          <DialogHeader className="flex flex-col items-center space-y-2 text-center pb-2">
+          <DialogHeader className="flex flex-row items-center justify-center space-y-2 text-center pb-2">
             <div className="p-3 bg-[var(--color-100)] rounded-full shadow-md text-[var(--color-700)]">
               <Stethoscope className="w-7 h-7" />
             </div>
             <DialogTitle className="text-2xl font-bold text-[var(--color-800)] dark:text-slate-100">
               Nouveau Patient
             </DialogTitle>
-            <DialogDescription className="text-sm text-slate-500 dark:text-slate-400">
-              Remplissez les informations pour enregistrer un nouveau dossier
-              patient.
-            </DialogDescription>
           </DialogHeader>
 
           {/* Inline Error Message */}

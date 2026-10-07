@@ -16,4 +16,10 @@ contextBridge.exposeInMainWorld("electron", {
 
   printBarcode2: (barcodeData) =>
     ipcRenderer.send("print-barcode2", barcodeData),
+
+  getZoomFactor: () => ipcRenderer.invoke("get-zoom-factor"),
+  setZoomFactor: (factor) => ipcRenderer.invoke("set-zoom-factor", factor),
+  zoomIn: () => ipcRenderer.invoke("zoom-in"),
+  zoomOut: () => ipcRenderer.invoke("zoom-out"),
+  resetZoom: () => ipcRenderer.invoke("reset-zoom"),
 });
