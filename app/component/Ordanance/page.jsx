@@ -12,8 +12,9 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Calendar, Trash2, FileText, Clock } from "lucide-react";
+import { Calendar, Trash2, FileText, Clock, Loader2 } from "lucide-react";
 import { printOrdonnance, printBilan, printJustification } from "@/lib/printer";
+import AlertModal from "@/app/component/success/page";
 // ✅ Pediatric Age Calculation
 function calculateAge(dateString) {
   if (!dateString) return "";
@@ -65,6 +66,19 @@ export default function OrdBilanPage({
   const [deleteType, setDeleteType] = useState(null);
   const [itemToDelete, setItemToDelete] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const [isSavingBilan, setIsSavingBilan] = useState(false);
+  const [isSavingJustif, setIsSavingJustif] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    isOpen: false,
+    type: "info",
+    title: "",
+    message: "",
+  });
+
+  const showAlert = (type, title, message) => {
+    setAlertConfig({ isOpen: true, type, title, message });
+  };
   const [filtredOrd, setFiltredOrd] = useState([]);
   const [filtredBilan, setFiltredBilan] = useState([]);
   const [filtredJustif, setFiltredJustif] = useState([]);
@@ -150,12 +164,14 @@ export default function OrdBilanPage({
   const confirmDelete = (type, item) => {
     setDeleteType(type);
     setItemToDelete(item);
+    setDeleteError("");
     setDeleteDialogOpen(true);
   };
 
   const handleDelete = async () => {
     if (!itemToDelete || !deleteType) return;
     setLoading(true);
+    setDeleteError("");
     try {
       const endpoint =
         deleteType === "ord"
@@ -165,7 +181,7 @@ export default function OrdBilanPage({
           : `/api/Justifications?id=${itemToDelete.id}`;
 
       const res = await fetch(endpoint, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete");
+      if (!res.ok) throw new Error("Erreur lors de la suppression.");
 
       setDeleteDialogOpen(false);
       setItemToDelete(null);
@@ -174,6 +190,7 @@ export default function OrdBilanPage({
       else fetchJustifications();
     } catch (err) {
       console.error("❌ Error deleting:", err);
+      setDeleteError(err?.message || "Erreur lors de la suppression.");
     } finally {
       setLoading(false);
     }
@@ -183,7 +200,7 @@ export default function OrdBilanPage({
   const handlePrintOrdonnanceElectron = async (ord) => {
     try {
       if (!ord.items || ord.items.length === 0) {
-        alert("Aucune donnée à imprimer");
+        showAlert("warning", "Attention", "Aucune donnée à imprimer.");
         return;
       }
       // console.log(JSON.stringify(ord));
@@ -230,7 +247,7 @@ export default function OrdBilanPage({
       });
     } catch (err) {
       console.error("Erreur lors de l'impression de l'ordonnance:", err);
-      alert("Erreur lors de l'impression de l'ordonnance.");
+      showAlert("error", "Erreur d'impression", "Erreur lors de l'impression de l'ordonnance.");
     }
   };
 
@@ -238,7 +255,7 @@ export default function OrdBilanPage({
   const handlePrintBilanElectron = async (bilan) => {
     try {
       if (!bilan.items || bilan.items.length === 0) {
-        alert("Aucun examen à imprimer");
+        showAlert("warning", "Attention", "Aucun examen à imprimer.");
         return;
       }
       // console.log(JSON.stringify(bilan));
@@ -277,12 +294,13 @@ export default function OrdBilanPage({
       });
     } catch (err) {
       console.error("Erreur lors de l'impression du bilan:", err);
-      alert("Erreur lors de l'impression du bilan.");
+      showAlert("error", "Erreur d'impression", "Erreur lors de l'impression du bilan.");
     }
   };
 
   // 💾 Save updated bilan items (each has resultat & remarque)
   const handleSaveBilan = async (bilan) => {
+    setIsSavingBilan(true);
     try {
       const res = await fetch(`/api/BilanRecip`, {
         method: "PUT",
@@ -302,10 +320,12 @@ export default function OrdBilanPage({
 
       //   setBilans((prev) => prev.map((b) => (b.id === bilan.id ? updated : b)));
       fetchBilans();
-      alert("✅ Bilan mis à jour avec succès !");
+      showAlert("success", "Succès", "Bilan mis à jour avec succès !");
     } catch (err) {
       console.error("❌ Erreur lors de la sauvegarde du bilan:", err);
-      alert("Erreur lors de la sauvegarde du bilan.");
+      showAlert("error", "Erreur", err?.message || "Erreur lors de la sauvegarde du bilan.");
+    } finally {
+      setIsSavingBilan(false);
     }
   };
   // 🧠 Handle input change for Bilan item (résultat / remarque)
@@ -341,7 +361,7 @@ export default function OrdBilanPage({
   const handlePrintJustificationElectron = async (justif) => {
     try {
       if (!justif.texte || !justif.texte.trim()) {
-        alert("Aucun texte de justification à imprimer");
+        showAlert("warning", "Attention", "Aucun texte de justification à imprimer.");
         return;
       }
       const fullname = selectedPatient?.nom || "";
@@ -374,12 +394,13 @@ export default function OrdBilanPage({
       });
     } catch (err) {
       console.error("Erreur lors de l'impression de la justification:", err);
-      alert("Erreur lors de l'impression de la justification.");
+      showAlert("error", "Erreur d'impression", "Erreur lors de l'impression de la justification.");
     }
   };
 
   // 💾 Save updated justification
   const handleSaveJustification = async (justif) => {
+    setIsSavingJustif(true);
     try {
       const res = await fetch(`/api/Justifications`, {
         method: "PUT",
@@ -396,10 +417,12 @@ export default function OrdBilanPage({
 
       if (!res.ok) throw new Error("Erreur lors de la sauvegarde de la justification");
       fetchJustifications();
-      alert("✅ Justification mise à jour avec succès !");
+      showAlert("success", "Succès", "Justification mise à jour avec succès !");
     } catch (err) {
       console.error("❌ Erreur lors de la sauvegarde de la justification:", err);
-      alert("Erreur lors de la sauvegarde de la justification.");
+      showAlert("error", "Erreur", err?.message || "Erreur lors de la sauvegarde de la justification.");
+    } finally {
+      setIsSavingJustif(false);
     }
   };
 
@@ -741,11 +764,16 @@ export default function OrdBilanPage({
                                     🖨️ Imprimer le Bilan
                                   </Button>
                                   <Button
+                                    type="button"
                                     onClick={() =>
                                       handleSaveBilan(selectedBilan)
                                     }
-                                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                                    disabled={isSavingBilan}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
                                   >
+                                    {isSavingBilan && (
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                    )}
                                     💾 Enregistrer
                                   </Button>
                                 </div>
@@ -988,11 +1016,16 @@ export default function OrdBilanPage({
                                 🖨️ Imprimer la Justification
                               </Button>
                               <Button
+                                type="button"
                                 onClick={() =>
                                   handleSaveJustification(selectedJustification)
                                 }
-                                className="bg-[var(--color-600)] hover:bg-[var(--color-700)] text-white"
+                                disabled={isSavingJustif}
+                                className="bg-[var(--color-600)] hover:bg-[var(--color-700)] text-white flex items-center gap-2"
                               >
+                                {isSavingJustif && (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                )}
                                 💾 Enregistrer
                               </Button>
                             </div>
@@ -1009,7 +1042,18 @@ export default function OrdBilanPage({
       </Tabs>
 
       {/* 🗑 Delete Confirmation */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <Dialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!loading) {
+            setDeleteDialogOpen(open);
+            if (!open) {
+              setDeleteError("");
+              setItemToDelete(null);
+            }
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-red-600">
@@ -1020,24 +1064,47 @@ export default function OrdBilanPage({
               irréversible.
             </DialogDescription>
           </DialogHeader>
+
+          {deleteError && (
+            <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
+              {deleteError}
+            </div>
+          )}
+
           <DialogFooter className="flex justify-end gap-2">
             <Button
+              type="button"
               variant="outline"
-              onClick={() => setDeleteDialogOpen(false)}
+              onClick={() => {
+                setDeleteDialogOpen(false);
+                setDeleteError("");
+                setItemToDelete(null);
+              }}
               disabled={loading}
             >
               Annuler
             </Button>
             <Button
+              type="button"
               variant="destructive"
               onClick={handleDelete}
               disabled={loading}
+              className="flex items-center gap-2"
             >
+              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               {loading ? "Suppression..." : "Supprimer"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertModal
+        isOpen={alertConfig.isOpen}
+        onClose={() => setAlertConfig((prev) => ({ ...prev, isOpen: false }))}
+        type={alertConfig.type}
+        title={alertConfig.title}
+        message={alertConfig.message}
+      />
     </div>
   );
 }

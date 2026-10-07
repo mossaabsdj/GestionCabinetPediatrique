@@ -62,8 +62,10 @@ export default function PatientVisits({
   const [currentVisitIndex, setCurrentVisitIndex] = useState(0);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [editedData, setEditedData] = useState({});
 
   // 🔄 Filter by query and dateFilter
@@ -225,7 +227,9 @@ export default function PatientVisits({
 
   // 🗑️ Delete consultation
   async function handleDelete(id) {
+    if (!id) return;
     setIsDeleting(true);
+    setDeleteError("");
     try {
       const res = await fetch(`/api/Consulter?id=${id}`, { method: "DELETE" });
       const data = await res.json();
@@ -239,6 +243,7 @@ export default function PatientVisits({
       setSelectedVisit(null);
     } catch (err) {
       console.error(err);
+      setDeleteError(err?.message || "Erreur lors de la suppression");
     } finally {
       setIsDeleting(false);
     }
@@ -247,6 +252,7 @@ export default function PatientVisits({
   // 💾 Save modifications
   async function handleSave() {
     setIsSaving(true);
+    setSaveError("");
     try {
       const formattedData = {
         ...editedData,
@@ -305,6 +311,7 @@ export default function PatientVisits({
       setSelectedVisit(updatedVisit);
     } catch (err) {
       console.error("❌ Erreur lors de la mise à jour:", err);
+      setSaveError(err?.message || "Erreur lors de la mise à jour");
     } finally {
       setIsSaving(false);
     }
@@ -694,8 +701,10 @@ export default function PatientVisits({
                       {isEditing ? (
                         <>
                           <button
+                            type="button"
                             onClick={() => {
                               setIsEditing(false);
+                              setSaveError("");
                               setEditedData(selectedVisit);
                             }}
                             disabled={isSaving}
@@ -704,6 +713,7 @@ export default function PatientVisits({
                             Annuler
                           </button>
                           <button
+                            type="button"
                             onClick={handleSave}
                             disabled={isSaving}
                             className="px-3.5 sm:px-5 py-2 sm:py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl transition font-semibold shadow-md hover:shadow-lg flex items-center gap-2 text-sm sm:text-base disabled:opacity-60"
@@ -722,6 +732,7 @@ export default function PatientVisits({
                         </>
                       ) : (
                         <button
+                          type="button"
                           onClick={() => setIsEditing(true)}
                           className="px-3.5 sm:px-5 py-2 sm:py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition font-semibold shadow-md hover:shadow-lg flex items-center gap-2 text-sm sm:text-base"
                         >
@@ -729,7 +740,11 @@ export default function PatientVisits({
                         </button>
                       )}
                       <button
-                        onClick={() => setDeleteConfirm(true)}
+                        type="button"
+                        onClick={() => {
+                          setDeleteError("");
+                          setDeleteConfirm(true);
+                        }}
                         className="px-3 sm:px-4 py-2 sm:py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl transition font-semibold shadow-md hover:shadow-lg flex items-center gap-2"
                         title="Supprimer la consultation"
                       >
@@ -737,6 +752,12 @@ export default function PatientVisits({
                       </button>
                     </div>
                   </div>
+
+                  {saveError && (
+                    <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg mt-2">
+                      {saveError}
+                    </div>
+                  )}
 
                   {/* Date/Time Row */}
                   <div className="flex flex-wrap justify-end items-center gap-2">
@@ -1001,7 +1022,15 @@ export default function PatientVisits({
         </DialogContent>
       </Dialog>
       {/* 🗑️ DELETE CONFIRM DIALOG */}
-      <Dialog open={deleteConfirm} onOpenChange={setDeleteConfirm}>
+      <Dialog
+        open={deleteConfirm}
+        onOpenChange={(open) => {
+          if (!isDeleting) {
+            setDeleteConfirm(open);
+            if (!open) setDeleteError("");
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-lg bg-white rounded-2xl shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-red-600 flex items-center gap-2">
@@ -1013,15 +1042,27 @@ export default function PatientVisits({
               Êtes-vous sûr de vouloir continuer ?
             </DialogDescription>
           </DialogHeader>
+
+          {deleteError && (
+            <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg mt-2">
+              {deleteError}
+            </div>
+          )}
+
           <DialogFooter className="flex justify-end gap-3 mt-6">
             <button
-              onClick={() => setDeleteConfirm(false)}
+              type="button"
+              onClick={() => {
+                setDeleteConfirm(false);
+                setDeleteError("");
+              }}
               disabled={isDeleting}
               className="px-6 py-2.5 border-2 border-gray-300 rounded-xl hover:bg-gray-50 transition font-semibold text-gray-700 shadow-sm disabled:opacity-50"
             >
               Annuler
             </button>
             <button
+              type="button"
               onClick={() => handleDelete(selectedVisit?.id)}
               disabled={isDeleting}
               className="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl transition font-semibold shadow-md hover:shadow-lg flex items-center gap-2 disabled:opacity-60"

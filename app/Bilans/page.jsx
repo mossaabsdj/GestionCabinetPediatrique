@@ -120,6 +120,8 @@ export default function BilansPage() {
       showAlert("success", "Succès !", `Le bilan "${data.nom}" a été ajouté.`);
     } catch (err) {
       console.error(err);
+      setIsAddOpen(false);
+
       showAlert(
         "error",
         "Erreur d'ajout",
@@ -145,6 +147,8 @@ export default function BilansPage() {
         "Le bilan a été supprimé avec succès.",
       );
     } catch (err) {
+      setIsAddOpen(false);
+
       console.error("Erreur suppression:", err);
       showAlert(
         "error",

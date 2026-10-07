@@ -175,9 +175,6 @@ export default function PrescriptionModal({
   };
 
   useEffect(() => {
-    setLoading(true);
-    loadRecettes();
-
     async function fetchMedicaments() {
       try {
         const res = await fetch("/api/medicaments");
@@ -196,11 +193,25 @@ export default function PrescriptionModal({
         console.error("Erreur de chargement des bilans", err);
       }
     }
-    fetchBilans();
-    fetchMedicaments();
-    fetchBilanTypes();
-    fetchJustifTypes();
-    setLoading(false);
+
+    async function loadAllInitialData() {
+      setLoading(true);
+      try {
+        await Promise.allSettled([
+          loadRecettes(),
+          fetchMedicaments(),
+          fetchBilans(),
+          fetchBilanTypes(),
+          fetchJustifTypes(),
+        ]);
+      } catch (err) {
+        console.error("Erreur de chargement initial ordonnance:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadAllInitialData();
   }, []);
 
   // Auto-focus on medication search when dialog opens or ordonnance tab is selected
@@ -533,7 +544,7 @@ export default function PrescriptionModal({
       });
     } catch (error) {
       console.error("Erreur lors de l'impression de l'ordonnance:", error);
-      //  alert("Erreur lors de l'impression de l'ordonnance.");
+      showAlert("Erreur d'impression", "Impossible d'imprimer l'ordonnance.");
     } finally {
       setPrintingOrd(false);
     }
@@ -591,7 +602,7 @@ export default function PrescriptionModal({
       });
     } catch (error) {
       console.error("Erreur lors de l'impression du bilan:", error);
-      // alert("Erreur lors de l'impression du bilan.");
+      showAlert("Erreur d'impression", "Impossible d'imprimer le bilan.");
     } finally {
       setPrintingBilan(false);
     }
@@ -644,6 +655,7 @@ export default function PrescriptionModal({
       });
     } catch (error) {
       console.error("Erreur lors de l'impression de la justification:", error);
+      showAlert("Erreur d'impression", "Impossible d'imprimer la justification.");
     } finally {
       setPrintingJustif(false);
     }
@@ -675,24 +687,27 @@ export default function PrescriptionModal({
   };
 
   async function handleAddBilan(form) {
-    if (!form.nom.trim())
+    if (!form.nom || !form.nom.trim())
       return showAlert("Champ requis", "Le nom du bilan est obligatoire.");
     setLoading(true);
     try {
       const res = await fetch("/api/bilans", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nom: form.nom }),
+        body: JSON.stringify({ nom: form.nom.trim() }),
       });
 
-      if (!res.ok) throw new Error("Erreur API");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Impossible d'ajouter le bilan.");
+      }
 
       const created = await res.json();
       setBilans((prev) => [created, ...prev]);
       //setNewBilan({ nom: "" });
     } catch (err) {
       console.error("Erreur lors de l'ajout", err);
-      showAlert("Erreur", "Impossible d'ajouter le bilan.");
+      showAlert("Erreur", err?.message || "Impossible d'ajouter le bilan.");
     } finally {
       setLoading(false);
     }
@@ -727,10 +742,8 @@ export default function PrescriptionModal({
   const showAlert = (title, message) =>
     setAlertData({ open: true, title, message });
   async function handleAddMedicament(nom) {
-    console.log(nom);
-    if (!nom) {
-      showAlert("Erreur", "Le nom du médicament est requis");
-
+    if (!nom || !nom.trim()) {
+      showAlert("Erreur", "Le nom du médicament est requis.");
       return;
     }
 
@@ -739,17 +752,20 @@ export default function PrescriptionModal({
       const res = await fetch("/api/medicaments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(nom),
+        body: JSON.stringify(nom.trim()),
       });
 
-      if (!res.ok) throw new showAlert("Erreur", "erreur api");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Impossible d'ajouter le médicament.");
+      }
       const created = await res.json();
       setMedicaments((prev) => [created, ...prev]);
       //  setNewMedicament({ nom: "" });
       setNewMedicament(false);
     } catch (err) {
       console.error("Erreur lors de l'ajout", err);
-      showAlert("Erreur", "Impossible d'ajouter le médicament.");
+      showAlert("Erreur", err?.message || "Impossible d'ajouter le médicament.");
     } finally {
       setLoading(false);
     }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Syringe, CalendarClock, AlertCircle, Trash2 } from "lucide-react";
+import { Syringe, CalendarClock, AlertCircle, Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -35,6 +35,8 @@ export default function Vaccination({
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedVaccine, setSelectedVaccine] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const filteredVaccinations = useMemo(() => {
     return vaccinations.filter((v) => {
@@ -76,12 +78,17 @@ export default function Vaccination({
   // ✅ Delete function
   const handleDelete = async () => {
     if (!selectedVaccine) return;
+    setDeleting(true);
+    setDeleteError("");
     try {
       const res = await fetch(`/api/vaccinations?id=${selectedVaccine.id}`, {
         method: "DELETE",
       });
 
-      if (!res.ok) throw new Error("Erreur lors de la suppression");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Erreur lors de la suppression");
+      }
 
       setVaccinations((prev) =>
         prev.filter((v) => v.id !== selectedVaccine.id),
@@ -89,7 +96,10 @@ export default function Vaccination({
       setOpenDialog(false);
       setSelectedVaccine(null);
     } catch (error) {
-      console.error("Erreur:", error);
+      console.error("❌ Erreur suppression vaccination:", error);
+      setDeleteError(error?.message || "Erreur lors de la suppression de la vaccination.");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -230,7 +240,15 @@ export default function Vaccination({
       </div>
 
       {/* ✅ Delete confirmation dialog */}
-      <Dialog open={openDialog} onOpenChange={setOpenDialog}>
+      <Dialog
+        open={openDialog}
+        onOpenChange={(isOpen) => {
+          if (!deleting) {
+            setOpenDialog(isOpen);
+            if (!isOpen) setDeleteError("");
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-[var(--color-700)]">
@@ -244,19 +262,32 @@ export default function Vaccination({
               ? Cette action est irréversible.
             </DialogDescription>
           </DialogHeader>
+          {deleteError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600 font-medium">
+              {deleteError}
+            </div>
+          )}
           <DialogFooter className="flex justify-end gap-2 mt-4">
             <Button
+              type="button"
               variant="outline"
-              onClick={() => setOpenDialog(false)}
+              disabled={deleting}
+              onClick={() => {
+                setDeleteError("");
+                setOpenDialog(false);
+              }}
               className="border-gray-300"
             >
               Annuler
             </Button>
             <Button
+              type="button"
+              disabled={deleting}
               onClick={handleDelete}
-              className="bg-[var(--color-600)] hover:bg-[var(--color-700)] text-white"
+              className="bg-red-600 hover:bg-red-700 text-white flex items-center gap-2 cursor-pointer"
             >
-              Supprimer
+              {deleting && <Loader2 className="w-4 h-4 animate-spin" />}
+              {deleting ? "Suppression..." : "Supprimer"}
             </Button>
           </DialogFooter>
         </DialogContent>

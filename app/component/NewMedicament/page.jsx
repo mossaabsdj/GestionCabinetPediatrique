@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Loader2 } from "lucide-react";
 import {
   Dialog,
@@ -16,24 +16,46 @@ import { Label } from "@/components/ui/label";
 export default function AddMedicamentModal({ open, onClose, onAdd, value, loading: parentLoading }) {
   const [form, setForm] = useState({ nom: value || "" });
   const [internalLoading, setInternalLoading] = useState(false);
+  const [error, setError] = useState("");
   const loading = parentLoading || internalLoading;
+
+  useEffect(() => {
+    if (open) {
+      setError("");
+      setForm({ nom: value || "" });
+    }
+  }, [open, value]);
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!form.nom.trim()) return alert("Le nom du médicament est requis");
+    if (!form.nom || !form.nom.trim()) {
+      setError("Le nom du médicament est requis.");
+      return;
+    }
     setInternalLoading(true);
+    setError("");
     try {
       await onAdd(form.nom.trim());
       setForm({ nom: "" });
+      setError("");
+      onClose?.();
     } catch (err) {
-      console.error(err);
+      console.error("Erreur ajout médicament:", err);
+      setError(err?.message || "Erreur lors de l'ajout du médicament.");
     } finally {
       setInternalLoading(false);
     }
   }
 
+  const handleOpenChange = (isOpen) => {
+    if (!loading) {
+      if (!isOpen) setError("");
+      onClose?.();
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-2xl rounded-2xl p-6 shadow-lg">
         <DialogHeader className="flex flex-col items-center space-y-3">
           <div className="p-4 bg-[var(--color-100)] rounded-full shadow-md">
@@ -46,6 +68,12 @@ export default function AddMedicamentModal({ open, onClose, onAdd, value, loadin
             Remplissez le nom pour ajouter un nouveau médicament
           </p>
         </DialogHeader>
+
+        {error && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600 font-medium">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-6">
           {/* Nom obligatoire */}

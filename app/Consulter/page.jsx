@@ -210,7 +210,8 @@ export default function PatientDashboard() {
       formData?.ordonnance?.items?.length > 0 ||
       formData?.bilanRecip?.items?.length > 0 ||
       formData?.justification?.trim?.() ||
-      (typeof formData?.justification === "object" && formData?.justification?.texte?.trim?.()) ||
+      (typeof formData?.justification === "object" &&
+        formData?.justification?.texte?.trim?.()) ||
       (Array.isArray(formData?.radios) && formData.radios.length > 0);
 
     if (!hasData) {
@@ -263,7 +264,8 @@ export default function PatientDashboard() {
               ? formData.justification.trim()
               : null,
           justificationRecord:
-            typeof formData.justification === "object" && formData.justification !== null
+            typeof formData.justification === "object" &&
+            formData.justification !== null
               ? formData.justification
               : null,
           perimetreCranien: formData.perimetreCranien || null,
@@ -308,8 +310,7 @@ export default function PatientDashboard() {
       });
 
       if (!response.ok) {
-        setsuccessopen(false);
-        const err = await response.json();
+        const err = await response.json().catch(() => ({}));
         throw new Error(
           err.error || "Erreur lors de la création de la consultation",
         );
@@ -323,17 +324,19 @@ export default function PatientDashboard() {
         await fetchPatientById(selectedPatient.id);
       }
       setnewordanance(false);
-      setload(false);
       return consultation;
     } catch (error) {
       console.error("❌ addConsultation error:", error);
+      setsuccessopen(false);
       Swal.fire({
         icon: "error",
         title: "Erreur",
-        text: error || "Erreur lors de la création de la consultation.",
+        text:
+          error?.message || "Erreur lors de la création de la consultation.",
         confirmButtonColor: "#d33",
       });
-      throw error;
+    } finally {
+      setload(false);
     }
   }
   const handleSaveConsultation = () => {};
@@ -358,8 +361,7 @@ export default function PatientDashboard() {
       setPatients(data);
 
       const targetId =
-        selectId ||
-        (!selectedPatient && data.length > 0 ? data[0].id : null);
+        selectId || (!selectedPatient && data.length > 0 ? data[0].id : null);
       if (targetId) {
         await fetchPatientById(targetId);
       }
@@ -372,9 +374,11 @@ export default function PatientDashboard() {
 
   async function fetchPatientById(id) {
     try {
+      setLoading(true);
       const res = await fetch(`/api/patients?id=${id}`); // use the updated GET API
       if (!res.ok) throw new Error("Failed to fetch patient");
       const data = await res.json();
+      setLoading(false);
       setSelectedPatient(data);
     } catch (error) {
       console.error("❌ Error fetching patient:", error);
@@ -681,8 +685,6 @@ export default function PatientDashboard() {
     }
   }
 
-  if (loading) return <LoadingScreen />;
-
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-[var(--color-50)] via-white to-[var(--color-100)]">
       {visitsinfo && (
@@ -693,7 +695,7 @@ export default function PatientDashboard() {
           fetchPatientById={fetchPatientById}
         />
       )}
-
+      {loading && <LoadingScreen />}
       <SuccessModal
         config={config}
         dialogOpen={successopen}
@@ -1345,12 +1347,16 @@ export default function PatientDashboard() {
 
             <button
               type="button"
-              onClick={() => {
-                addConsultation(NewConsultationData);
+              onClick={async () => {
                 setDataTimeModel(false);
+                try {
+                  await addConsultation(NewConsultationData);
+                } catch (err) {
+                  console.error("Erreur enregistrement consultation:", err);
+                }
               }}
               disabled={!date || !time}
-              className="px-5 py-2.5 text-base rounded-xl bg-[var(--color-600)] text-white font-medium shadow-sm hover:bg-[var(--color-700)] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+              className="px-5 py-2.5 text-base rounded-xl bg-[var(--color-600)] text-white font-medium shadow-sm hover:bg-[var(--color-700)] disabled:opacity-60 disabled:cursor-not-allowed transition-colors cursor-pointer"
             >
               Enregistrer la consultation
             </button>

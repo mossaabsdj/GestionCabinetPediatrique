@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calendar, Plus, Trash2 } from "lucide-react";
+import { Calendar, Plus, Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -35,6 +35,10 @@ export default function Analyses({
   const [loading, setLoading] = useState(true);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [fileToDelete, setFileToDelete] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const [formData, setFormData] = useState({
     consultationId: "",
@@ -130,13 +134,19 @@ export default function Analyses({
   // ✅ Add new file
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!formData.type) {
+      setSubmitError("Veuillez sélectionner un type d'analyse.");
+      return;
+    }
+    setSubmitting(true);
+    setSubmitError("");
     try {
       const endpoint =
         formData.type.toLowerCase() === "radio"
           ? "/api/radio"
           : "/api/bilanfile";
 
-      await fetch(endpoint, {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -144,6 +154,10 @@ export default function Analyses({
           patientId: Number(patientID),
         }),
       });
+
+      if (!res.ok) {
+        throw new Error("Erreur lors de l'enregistrement de l'analyse.");
+      }
 
       setShowAddDialogNewAnalyse(false);
       setFormData({
@@ -155,50 +169,58 @@ export default function Analyses({
       fetchFiles();
     } catch (err) {
       console.error("Erreur lors de l’ajout:", err);
+      setSubmitError(err?.message || "Erreur lors de l'enregistrement.");
+    } finally {
+      setSubmitting(false);
     }
   };
-  const handleFileChange = (file) => {
-    if (file) {
-      console.log("Selected file:", file.name);
-      const formData = new FormData();
-      formData.append("file", file);
 
-      fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      })
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error("Network response was not ok");
-          }
-          return response.json();
-        })
-        .then((data) => {
-          console.log("File uploaded successfully:", data);
-        })
-        .catch((error) => {
-          console.error("Error uploading file:", error);
+  const handleFileChange = async (file) => {
+    if (file) {
+      try {
+        const uploadData = new FormData();
+        uploadData.append("file", file);
+
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          body: uploadData,
         });
+        if (!response.ok) {
+          throw new Error("Erreur lors du téléchargement du fichier.");
+        }
+      } catch (error) {
+        console.error("Error uploading file:", error);
+        setSubmitError(error?.message || "Erreur lors du téléchargement du fichier.");
+      }
     }
   };
 
   // ✅ Delete confirmation
   const confirmDelete = (file) => {
     setFileToDelete(file);
+    setDeleteError("");
     setShowDeleteDialog(true);
   };
 
   const handleDelete = async () => {
     if (!fileToDelete) return;
+    setDeleting(true);
+    setDeleteError("");
     try {
       const endpoint =
         fileToDelete.type === "Radio" ? "/api/radio?id=" : "/api/bilanfile?id=";
-      await fetch(endpoint + fileToDelete.id, { method: "DELETE" });
+      const res = await fetch(endpoint + fileToDelete.id, { method: "DELETE" });
+      if (!res.ok) {
+        throw new Error("Erreur lors de la suppression.");
+      }
       setShowDeleteDialog(false);
       setFileToDelete(null);
       fetchFiles();
     } catch (err) {
       console.error("Erreur de suppression:", err);
+      setDeleteError(err?.message || "Erreur lors de la suppression.");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -310,7 +332,12 @@ export default function Analyses({
       {/* ✅ Add Dialog */}
       <Dialog
         open={ShowAddDialogNewAnalyse}
-        onOpenChange={setShowAddDialogNewAnalyse}
+        onOpenChange={(open) => {
+          if (!submitting) {
+            setShowAddDialogNewAnalyse(open);
+            if (!open) setSubmitError("");
+          }
+        }}
       >
         <DialogContent className="sm:max-w-[450px]">
           <DialogHeader>
@@ -318,6 +345,12 @@ export default function Analyses({
               Ajouter une analyse
             </DialogTitle>
           </DialogHeader>
+
+          {submitError && (
+            <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
+              {submitError}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-3 mt-2">
             <div>
@@ -349,9 +382,10 @@ export default function Analyses({
               <Input
                 type="file"
                 onChange={(e) => {
-                  console.log(e);
-                  setFormData({ ...formData, fichier: e.target.files[0].name });
-                  handleFileChange(e.target.files[0]);
+                  if (e.target.files?.[0]) {
+                    setFormData({ ...formData, fichier: e.target.files[0].name });
+                    handleFileChange(e.target.files[0]);
+                  }
                 }}
                 className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-[var(--color-500)]"
               />
@@ -361,14 +395,20 @@ export default function Analyses({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setShowAddDialogNewAnalyse(false)}
+                disabled={submitting}
+                onClick={() => {
+                  setShowAddDialogNewAnalyse(false);
+                  setSubmitError("");
+                }}
               >
                 Annuler
               </Button>
               <Button
                 type="submit"
-                className="bg-[var(--color-600)] hover:bg-[var(--color-700)] text-white"
+                disabled={submitting}
+                className="bg-[var(--color-600)] hover:bg-[var(--color-700)] text-white flex items-center gap-2"
               >
+                {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
                 Enregistrer
               </Button>
             </DialogFooter>
@@ -377,28 +417,55 @@ export default function Analyses({
       </Dialog>
 
       {/* ✅ Delete Confirmation */}
-      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+      <Dialog
+        open={showDeleteDialog}
+        onOpenChange={(open) => {
+          if (!deleting) {
+            setShowDeleteDialog(open);
+            if (!open) {
+              setDeleteError("");
+              setFileToDelete(null);
+            }
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
             <DialogTitle className="text-[var(--color-700)]">
               Confirmer la suppression
             </DialogTitle>
           </DialogHeader>
+
+          {deleteError && (
+            <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
+              {deleteError}
+            </div>
+          )}
+
           <p className="text-gray-600">
             Êtes-vous sûr de vouloir supprimer{" "}
             <span className="font-semibold">{fileToDelete?.name}</span> ?
           </p>
           <DialogFooter className="mt-4">
             <Button
+              type="button"
               variant="outline"
-              onClick={() => setShowDeleteDialog(false)}
+              disabled={deleting}
+              onClick={() => {
+                setShowDeleteDialog(false);
+                setDeleteError("");
+                setFileToDelete(null);
+              }}
             >
               Annuler
             </Button>
             <Button
+              type="button"
               onClick={handleDelete}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700 text-white flex items-center gap-2"
             >
+              {deleting && <Loader2 className="w-4 h-4 animate-spin" />}
               Supprimer
             </Button>
           </DialogFooter>

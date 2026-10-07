@@ -100,6 +100,7 @@ export default function TypesPage() {
   const [selectedMed, setSelectedMed] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   // justifs
   const [newJustif, setNewJustif] = useState({ nom: "", texte: "" });
@@ -107,6 +108,7 @@ export default function TypesPage() {
   const [Dejaexist, setDejaExistDialog] = useState(false);
   const [DejaexistB, setDejaExistDialogB] = useState(false);
   const openAdd = (section) => {
+    setSaveError("");
     setModal({ open: true, section, mode: "add", type: null });
     setTypeLabel("");
     setSelectedMeds([]);
@@ -192,9 +194,6 @@ export default function TypesPage() {
     }
   };
   useEffect(() => {
-    setLoading(true);
-    loadRecettes();
-
     async function fetchMedicaments() {
       try {
         const res = await fetch("/api/medicaments");
@@ -213,14 +212,29 @@ export default function TypesPage() {
         console.error("Erreur de chargement des bilans", err);
       }
     }
-    fetchBilans();
-    fetchMedicaments();
-    fetchBilanTypes();
-    fetchJustifTypes();
-    setLoading(false);
+
+    async function loadAllInitialData() {
+      setLoading(true);
+      try {
+        await Promise.allSettled([
+          loadRecettes(),
+          fetchMedicaments(),
+          fetchBilans(),
+          fetchBilanTypes(),
+          fetchJustifTypes(),
+        ]);
+      } catch (err) {
+        console.error("Erreur de chargement des données prédéfinies:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadAllInitialData();
   }, []);
 
   const openEdit = (section, type) => {
+    setSaveError("");
     setModal({ open: true, section, mode: "edit", type });
     setTypeLabel(type.nom);
     console.log(section);
@@ -547,6 +561,7 @@ export default function TypesPage() {
     };
 
     setSaving(true);
+    setSaveError("");
     try {
       if (modal.section === "ord") {
         if (modal.mode === "add") {
@@ -580,26 +595,31 @@ export default function TypesPage() {
       }
 
       // ✅ Reset modal after success
+      setSaveError("");
       setModal({ open: false, section: "", mode: "add", type: null });
     } catch (err) {
       console.error("❌ handleSave error:", err);
+      setSaveError(err?.message || "Erreur lors de l'enregistrement.");
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (section, id) => {
-    if (section === "ord") {
-      await deleteRecetteType(id);
-      await loadRecettes();
-    }
-    if (section === "bilan") {
-      await deleteBilanType(id);
-      await fetchBilanTypes();
-    }
-    if (section === "justif") {
-      await deleteJustifType(id);
-      await fetchJustifTypes();
+    try {
+      if (section === "ord") {
+        await deleteRecetteType(id);
+        await loadRecettes();
+      } else if (section === "bilan") {
+        await deleteBilanType(id);
+        await fetchBilanTypes();
+      } else if (section === "justif") {
+        await deleteJustifType(id);
+        await fetchJustifTypes();
+      }
+    } catch (err) {
+      console.error("❌ handleDelete error:", err);
+      throw err;
     }
   };
   const addMedication = () => {
@@ -790,7 +810,10 @@ export default function TypesPage() {
       {/* Modal */}
       <Dialog
         open={modal.open}
-        onOpenChange={(open) => setModal((m) => ({ ...m, open }))}
+        onOpenChange={(open) => {
+          setModal((m) => ({ ...m, open }));
+          if (!open) setSaveError("");
+        }}
       >
         <DialogContent className="min-h-160 min-w-3xl overflow-auto">
           <DialogHeader>
@@ -1000,6 +1023,12 @@ export default function TypesPage() {
               </div>
             </TabsContent>
           </Tabs>
+
+          {saveError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600 font-medium">
+              {saveError}
+            </div>
+          )}
 
           <DialogFooter className="mt-4">
             <Button

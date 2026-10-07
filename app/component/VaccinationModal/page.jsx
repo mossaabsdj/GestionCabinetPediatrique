@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Syringe, Loader2 } from "lucide-react";
 import {
   Dialog,
@@ -23,24 +23,46 @@ export default function AddVaccinationModal({
 }) {
   const [form, setForm] = useState(value || { vaccineName: "" });
   const [internalLoading, setInternalLoading] = useState(false);
+  const [error, setError] = useState("");
   const loading = parentLoading || internalLoading;
+
+  useEffect(() => {
+    if (open) {
+      setError("");
+      setForm(value || { vaccineName: "" });
+    }
+  }, [open, value]);
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!form.vaccineName) return alert("Le nom du vaccin est requis");
+    if (!form.vaccineName || !form.vaccineName.trim()) {
+      setError("Le nom du vaccin est requis.");
+      return;
+    }
     setInternalLoading(true);
+    setError("");
     try {
-      await onAdd(form.vaccineName);
+      await onAdd(form.vaccineName.trim());
       setForm({ vaccineName: "" });
+      setError("");
+      onClose?.();
     } catch (err) {
-      console.error(err);
+      console.error("Erreur ajout vaccin:", err);
+      setError(err?.message || "Erreur lors de l'ajout du vaccin.");
     } finally {
       setInternalLoading(false);
     }
   }
 
+  const handleOpenChange = (isOpen) => {
+    if (!loading) {
+      if (!isOpen) setError("");
+      onClose?.();
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-2xl rounded-2xl p-6 shadow-lg border border-[var(--color-200)]">
         <DialogHeader className="flex flex-col items-center space-y-3">
           {/* Icon */}
@@ -58,6 +80,12 @@ export default function AddVaccinationModal({
             Entrez le nom du vaccin à ajouter
           </p>
         </DialogHeader>
+
+        {error && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600 font-medium">
+            {error}
+          </div>
+        )}
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="mt-4 space-y-6">

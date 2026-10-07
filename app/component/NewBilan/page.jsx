@@ -22,28 +22,46 @@ export default function AddBilanModal({
 }) {
   const [form, setForm] = useState({ nom: value || "" });
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      setError("");
+      setForm({ nom: value || "" });
+    }
+  }, [open, value]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.nom.trim()) {
-      alert("Le nom du bilan est requis");
+    if (!form.nom || !form.nom.trim()) {
+      setError("Le nom du bilan est requis.");
       return;
     }
 
     setLoading(true);
+    setError("");
     try {
-      await onAdd(form);
+      await onAdd({ nom: form.nom.trim() });
       setForm({ nom: "" });
+      setError("");
       onClose();
     } catch (err) {
-      console.error(err);
+      console.error("Erreur ajout bilan:", err);
+      setError(err?.message || "Erreur lors de l'ajout du bilan.");
     } finally {
       setLoading(false);
     }
   };
 
+  const handleOpenChange = (isOpen) => {
+    if (!loading) {
+      if (!isOpen) setError("");
+      onClose?.();
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-2xl rounded-2xl p-6 shadow-lg border border-[var(--color-200)]">
         <DialogHeader className="flex flex-col items-center space-y-3">
           <div className="p-4 bg-[var(--color-100)] rounded-full shadow-md">
@@ -56,6 +74,12 @@ export default function AddBilanModal({
             Remplissez le nom pour ajouter un nouveau type de bilan.
           </p>
         </DialogHeader>
+
+        {error && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600 font-medium">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-6">
           {/* Champ Nom du Bilan */}

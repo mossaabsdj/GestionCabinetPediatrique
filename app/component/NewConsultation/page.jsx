@@ -86,8 +86,8 @@ export default function NewConsultationPage({
 
   const [showRadioModal, setShowRadioModal] = useState(false);
   const [editingRadioIndex, setEditingRadioIndex] = useState(null);
-  const [radioForm, setRadioForm] = useState({ description: "", fichier: "" });
   const [radioUploading, setRadioUploading] = useState(false);
+  const [radioUploadError, setRadioUploadError] = useState("");
 
   const [showRendezVousModal, setShowRendezVousModal] = useState(false);
   const [rdvForm, setRdvForm] = useState({ date: "", description: "" });
@@ -205,10 +205,10 @@ export default function NewConsultationPage({
     setSaving(true);
     try {
       await Promise.resolve(onSave?.({ ...form }));
-      setSaving(false);
     } catch (e) {
-      setSaving(false);
       setError(e?.message ?? "Erreur lors de l'enregistrement");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -218,6 +218,7 @@ export default function NewConsultationPage({
     if (!file) return;
 
     setRadioUploading(true);
+    setRadioUploadError("");
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -240,6 +241,7 @@ export default function NewConsultationPage({
       }));
     } catch (err) {
       console.error("Upload error:", err);
+      setRadioUploadError(err?.message || "Échec du téléversement du fichier");
     } finally {
       setRadioUploading(false);
     }
@@ -1012,7 +1014,13 @@ export default function NewConsultationPage({
       {/* ======================================================== */}
       {/* 🩻 MODAL RADIO & IMAGERIE */}
       {/* ======================================================== */}
-      <Dialog open={showRadioModal} onOpenChange={setShowRadioModal}>
+      <Dialog
+        open={showRadioModal}
+        onOpenChange={(open) => {
+          setShowRadioModal(open);
+          if (!open) setRadioUploadError("");
+        }}
+      >
         <DialogContent className="sm:max-w-md w-full rounded-2xl p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl">
           <DialogHeader className="text-left space-y-1 mb-2">
             <DialogTitle className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
@@ -1025,6 +1033,12 @@ export default function NewConsultationPage({
               Renseignez la description et téléversez le document radiologique.
             </DialogDescription>
           </DialogHeader>
+
+          {radioUploadError && (
+            <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
+              {radioUploadError}
+            </div>
+          )}
 
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
@@ -1096,7 +1110,10 @@ export default function NewConsultationPage({
             <Button
               type="button"
               variant="outline"
-              onClick={() => setShowRadioModal(false)}
+              onClick={() => {
+                setShowRadioModal(false);
+                setRadioUploadError("");
+              }}
               className="rounded-xl"
             >
               Annuler

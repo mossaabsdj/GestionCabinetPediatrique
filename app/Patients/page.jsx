@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import AjouteModal from "@/app/component/NewPatient/page";
 import DialogPage from "@/app/component/DialogPage/page";
+import AlertModal from "@/app/component/success/page";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,16 +63,36 @@ export default function PatientsPage() {
     groupeSanguin: "",
   });
 
+  // Centered Alert Modal State
+  const [alertOpen, setAlertOpen] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    type: "success",
+    title: "",
+    description: "",
+  });
+
+  const showAlert = (type, title, description, autoClose = true) => {
+    setAlertConfig({
+      type,
+      title,
+      description,
+      autoClose,
+      autoCloseDelay: type === "error" ? 4000 : 2500,
+    });
+    setAlertOpen(true);
+  };
+
   // ===== Fetch patients from API =====
   async function fetchPatients() {
     try {
       setLoading(true);
       const res = await fetch("/api/patients");
+      if (!res.ok) throw new Error("Erreur lors du chargement des patients");
       const data = await res.json();
       setPatients(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error(err);
-      alert("Erreur lors du chargement des patients");
+      showAlert("error", "Erreur", "Impossible de charger la liste des patients.");
     } finally {
       setLoading(false);
     }
@@ -252,11 +273,15 @@ export default function PatientsPage() {
   async function handleDelete(id) {
     try {
       const res = await fetch(`/api/patients?id=${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Erreur suppression");
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "Erreur lors de la suppression");
+      }
       setPatients((prev) => prev.filter((p) => p.id !== id));
+      showAlert("success", "Supprimé !", "Le patient a été supprimé avec succès.");
     } catch (err) {
       console.error(err);
-      alert("Erreur lors de la suppression du patient");
+      showAlert("error", "Erreur", err.message || "Erreur lors de la suppression du patient.");
     }
   }
 
@@ -269,6 +294,11 @@ export default function PatientsPage() {
 
   return (
     <div className="overflow-y-hidden min-h-screen bg-gradient-to-br from-[var(--color-50)] via-white to-[var(--color-100)] p-6">
+      <AlertModal
+        config={alertConfig}
+        dialogOpen={alertOpen}
+        setDialogOpen={setAlertOpen}
+      />
       <AjouteModal
         onAdd={handleAddPatient}
         open={isAddOpen}
