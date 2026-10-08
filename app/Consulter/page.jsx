@@ -26,6 +26,7 @@ import {
   Sparkles,
   Keyboard,
   Files,
+  Loader2,
 } from "lucide-react";
 
 import {
@@ -37,6 +38,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import SuccessModal from "@/app/component/success/page";
+import { printOrdonnance, printBilan, printJustification } from "@/lib/printer";
 import { Card, CardContent } from "@/components/ui/card";
 import NewOrdanance from "@/app/component/NewOrdanance/page";
 import AddVaccinationButton from "../component/NewVaccination/page";
@@ -82,6 +84,8 @@ export default function PatientDashboard() {
     vaccination: "",
   });
   const [successopen, setsuccessopen] = useState(false);
+  const [createdConsultationData, setCreatedConsultationData] = useState(null);
+  const [printingDoc, setPrintingDoc] = useState(null);
   const [DateTimeModal, setDataTimeModel] = useState(false);
   const [viderForm, setViderForm] = useState(false);
   const [openAddMeasure, setOpenAddMeasure] = useState(false);
@@ -187,6 +191,7 @@ export default function PatientDashboard() {
   }
 
   async function addConsultation(formData) {
+    if (!formData) return;
     setlastid(selectedPatient?.id);
     console.log(formData);
     const dateTime = new Date(`${date}T${time}:00`);
@@ -225,9 +230,13 @@ export default function PatientDashboard() {
       return;
     }
 
+    setCreatedConsultationData(null);
+    setPrintingDoc(null);
     setConfig({
       title: "Nouvelle consultation ajoutée !",
       description: "La consultation du patient a été ajoutée avec succès.",
+      autoClose: true,
+      actionText: "OK",
     });
     setsuccessopen(true);
     setload(true);
@@ -318,6 +327,54 @@ export default function PatientDashboard() {
 
       const consultation = await response.json();
       console.log("✅ Consultation créée:", consultation);
+
+      const hasOrdonnance = Boolean(
+        (consultation?.ordonnance?.items &&
+          consultation.ordonnance.items.length > 0) ||
+          (formData?.ordonnance?.items && formData.ordonnance.items.length > 0),
+      );
+
+      const hasBilan = Boolean(
+        (consultation?.bilanRecip?.items &&
+          consultation.bilanRecip.items.length > 0) ||
+          (formData?.bilanRecip?.items && formData.bilanRecip.items.length > 0),
+      );
+
+      const hasJustification = Boolean(
+        consultation?.justificationRecord?.texte?.trim() ||
+          consultation?.justification?.trim() ||
+          (typeof formData?.justification === "string"
+            ? formData.justification.trim()
+            : formData?.justification?.texte?.trim()),
+      );
+
+      const hasAnyDocs = hasOrdonnance || hasBilan || hasJustification;
+
+      if (hasAnyDocs) {
+        setCreatedConsultationData({
+          consultation,
+          formData,
+          hasOrdonnance,
+          hasBilan,
+          hasJustification,
+        });
+        setConfig({
+          title: "Nouvelle consultation ajoutée !",
+          description: "La consultation du patient a été ajoutée avec succès.",
+          autoClose: false,
+          actionText: "Fermer",
+        });
+      } else {
+        setCreatedConsultationData(null);
+        setConfig({
+          title: "Nouvelle consultation ajoutée !",
+          description: "La consultation du patient a été ajoutée avec succès.",
+          autoClose: true,
+          autoCloseDelay: 3000,
+          actionText: "OK",
+        });
+      }
+
       setViderForm(true);
       // ✅ Refresh only the selected patient
       if (selectedPatient?.id) {
@@ -327,6 +384,8 @@ export default function PatientDashboard() {
       return consultation;
     } catch (error) {
       console.error("❌ addConsultation error:", error);
+      setCreatedConsultationData(null);
+      setPrintingDoc(null);
       setsuccessopen(false);
       Swal.fire({
         icon: "error",
@@ -339,6 +398,195 @@ export default function PatientDashboard() {
       setload(false);
     }
   }
+
+  // 🖨️ Handlers to print documents created for the new consultation
+  const handlePrintCreatedOrdonnance = async () => {
+    if (!createdConsultationData) return;
+    setPrintingDoc("ordonnance");
+    try {
+      const { consultation, formData } = createdConsultationData;
+      const fullname = selectedPatient?.nom || "";
+      let prenom = "";
+      let nom = "";
+      if (fullname.trim()) {
+        const parts = fullname.trim().split(" ");
+        if (parts.length === 1) nom = parts[0];
+        else {
+          prenom = parts.slice(0, -1).join(" ");
+          nom = parts[parts.length - 1];
+        }
+      }
+      const age = Age || calculateAge(selectedPatient?.dateDeNaissance);
+
+      const rawItems =
+        consultation?.ordonnance?.items && consultation.ordonnance.items.length > 0
+          ? consultation.ordonnance.items
+          : formData?.ordonnance?.items || [];
+
+      const items = rawItems.map((it, idx) => {
+        const fallback = formData?.ordonnance?.items?.[idx];
+        return {
+          name:
+            it.medicament?.nom ||
+            it.nom ||
+            it.name ||
+            fallback?.nom ||
+            fallback?.name ||
+            "",
+          dosage: it.dosage || fallback?.dosage || "",
+          duration:
+            it.duree || it.duration || fallback?.duree || fallback?.duration || "",
+          frequency:
+            it.frequence ||
+            it.frequency ||
+            fallback?.frequence ||
+            fallback?.frequency ||
+            "",
+          quantity:
+            it.quantite ||
+            it.quantity ||
+            fallback?.quantite ||
+            fallback?.quantity ||
+            "",
+        };
+      });
+
+      printOrdonnance({
+        consultationId: consultation?.id || "",
+        ordonnanceId: consultation?.ordonnance?.id || "",
+        nom,
+        prenom,
+        age,
+        items,
+      });
+    } catch (err) {
+      console.error("Erreur impression ordonnance:", err);
+      Swal.fire({
+        icon: "error",
+        title: "Erreur d'impression",
+        text: "Impossible d'imprimer l'ordonnance.",
+      });
+    } finally {
+      setPrintingDoc(null);
+    }
+  };
+
+  const handlePrintCreatedBilan = async () => {
+    if (!createdConsultationData) return;
+    setPrintingDoc("bilan");
+    try {
+      const { consultation, formData } = createdConsultationData;
+      const fullname = selectedPatient?.nom || "";
+      let prenom = "";
+      let nom = "";
+      if (fullname.trim()) {
+        const parts = fullname.trim().split(" ");
+        if (parts.length === 1) nom = parts[0];
+        else {
+          prenom = parts.slice(0, -1).join(" ");
+          nom = parts[parts.length - 1];
+        }
+      }
+      const age = Age || calculateAge(selectedPatient?.dateDeNaissance);
+
+      const rawItems =
+        consultation?.bilanRecip?.items && consultation.bilanRecip.items.length > 0
+          ? consultation.bilanRecip.items
+          : formData?.bilanRecip?.items || [];
+
+      const items = rawItems.map((it, idx) => {
+        const fallback = formData?.bilanRecip?.items?.[idx];
+        return {
+          id: it.id || it.bilanId || fallback?.id || fallback?.bilanId,
+          nom:
+            it.bilan?.nom ||
+            it.nom ||
+            it.name ||
+            fallback?.nom ||
+            fallback?.name ||
+            "",
+        };
+      });
+
+      printBilan({
+        consultationId: consultation?.id || "",
+        bilanId: consultation?.bilanRecip?.id || "",
+        nom,
+        prenom,
+        age,
+        items,
+      });
+    } catch (err) {
+      console.error("Erreur impression bilan:", err);
+      Swal.fire({
+        icon: "error",
+        title: "Erreur d'impression",
+        text: "Impossible d'imprimer le bilan.",
+      });
+    } finally {
+      setPrintingDoc(null);
+    }
+  };
+
+  const handlePrintCreatedJustification = async () => {
+    if (!createdConsultationData) return;
+    setPrintingDoc("justification");
+    try {
+      const { consultation, formData } = createdConsultationData;
+      const fullname = selectedPatient?.nom || "";
+      let prenom = "";
+      let nom = "";
+      if (fullname.trim()) {
+        const parts = fullname.trim().split(" ");
+        if (parts.length === 1) nom = parts[0];
+        else {
+          prenom = parts.slice(0, -1).join(" ");
+          nom = parts[parts.length - 1];
+        }
+      }
+      const age = Age || calculateAge(selectedPatient?.dateDeNaissance);
+
+      const justifRecord = consultation?.justificationRecord;
+      const justifForm = formData?.justification;
+
+      const titre =
+        justifRecord?.titre ||
+        (typeof justifForm === "object" ? justifForm?.titre : null) ||
+        "JUSTIFICATION MÉDICALE";
+
+      const texte =
+        justifRecord?.texte ||
+        (typeof justifForm === "string" ? justifForm : justifForm?.texte) ||
+        consultation?.justification ||
+        "";
+
+      const duree =
+        justifRecord?.duree ||
+        (typeof justifForm === "object" ? justifForm?.duree : "") ||
+        "";
+
+      printJustification({
+        consultationId: consultation?.id || "",
+        justificationId: justifRecord?.id || consultation?.id || "",
+        nom,
+        prenom,
+        age,
+        titre,
+        texte,
+        duree,
+      });
+    } catch (err) {
+      console.error("Erreur impression justification:", err);
+      Swal.fire({
+        icon: "error",
+        title: "Erreur d'impression",
+        text: "Impossible d'imprimer la justification.",
+      });
+    } finally {
+      setPrintingDoc(null);
+    }
+  };
+
   const handleSaveConsultation = () => {};
   async function addconsultationfunction(data) {
     setDate(new Date().toISOString().split("T")[0]);
@@ -378,10 +626,11 @@ export default function PatientDashboard() {
       const res = await fetch(`/api/patients?id=${id}`); // use the updated GET API
       if (!res.ok) throw new Error("Failed to fetch patient");
       const data = await res.json();
-      setLoading(false);
       setSelectedPatient(data);
     } catch (error) {
       console.error("❌ Error fetching patient:", error);
+    } finally {
+      setLoading(false);
     }
   }
   useEffect(() => {
@@ -699,9 +948,77 @@ export default function PatientDashboard() {
       <SuccessModal
         config={config}
         dialogOpen={successopen}
-        setDialogOpen={setsuccessopen}
+        setDialogOpen={(open) => {
+          setsuccessopen(open);
+          if (!open) {
+            setCreatedConsultationData(null);
+            setPrintingDoc(null);
+          }
+        }}
         loading={load}
-      />
+      >
+        {createdConsultationData && (
+          <div className="w-full pt-2 pb-1 space-y-2.5">
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 text-left space-y-2.5">
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                Documents disponibles pour impression
+              </p>
+              <div className="flex flex-col gap-2">
+                {createdConsultationData.hasOrdonnance && (
+                  <button
+                    type="button"
+                    onClick={handlePrintCreatedOrdonnance}
+                    disabled={printingDoc === "ordonnance"}
+                    className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/70 dark:bg-blue-950/30 text-blue-800 dark:text-blue-300 hover:bg-blue-100/80 dark:hover:bg-blue-900/50 transition font-medium text-sm shadow-2xs cursor-pointer disabled:opacity-50"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span>🖨️</span>
+                      <span>Imprimer ordonnance</span>
+                    </span>
+                    {printingDoc === "ordonnance" && (
+                      <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                    )}
+                  </button>
+                )}
+
+                {createdConsultationData.hasBilan && (
+                  <button
+                    type="button"
+                    onClick={handlePrintCreatedBilan}
+                    disabled={printingDoc === "bilan"}
+                    className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100/80 dark:hover:bg-emerald-900/50 transition font-medium text-sm shadow-2xs cursor-pointer disabled:opacity-50"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span>🖨️</span>
+                      <span>Imprimer bilan</span>
+                    </span>
+                    {printingDoc === "bilan" && (
+                      <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+                    )}
+                  </button>
+                )}
+
+                {createdConsultationData.hasJustification && (
+                  <button
+                    type="button"
+                    onClick={handlePrintCreatedJustification}
+                    disabled={printingDoc === "justification"}
+                    className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-purple-200 dark:border-purple-800 bg-purple-50/70 dark:bg-purple-950/30 text-purple-800 dark:text-purple-300 hover:bg-purple-100/80 dark:hover:bg-purple-900/50 transition font-medium text-sm shadow-2xs cursor-pointer disabled:opacity-50"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span>🖨️</span>
+                      <span>Imprimer justification</span>
+                    </span>
+                    {printingDoc === "justification" && (
+                      <Loader2 className="w-4 h-4 animate-spin text-purple-600" />
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </SuccessModal>
 
       {/* Keyboard Shortcuts Help Dialog */}
       <AnimatePresence>

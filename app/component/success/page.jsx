@@ -22,6 +22,7 @@ export function SuccessDialog({
   loading = false,
   loadingText = "Traitement en cours...",
   actionText = "OK",
+  children,
 }) {
   useEffect(() => {
     if (autoClose && isOpen && !loading && type !== "error") {
@@ -171,6 +172,18 @@ export function SuccessDialog({
                 </div>
               </motion.div>
 
+              {/* Confirmation / Action Area (e.g. print documents) */}
+              {children && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2, duration: 0.3 }}
+                  className="w-full pt-1"
+                >
+                  {children}
+                </motion.div>
+              )}
+
               {/* Action Button */}
               <div className="pt-2 w-full">
                 <button
@@ -195,6 +208,7 @@ export default function AlertModal({
   dialogOpen,
   setDialogOpen,
   loading,
+  children,
 }) {
   return (
     <AnimatePresence>
@@ -210,7 +224,9 @@ export default function AlertModal({
           autoCloseDelay={config?.autoCloseDelay ?? 3000}
           actionText={config?.actionText || "OK"}
           loading={loading}
-        />
+        >
+          {children || config?.children || config?.extraContent}
+        </SuccessDialog>
       )}
     </AnimatePresence>
   );

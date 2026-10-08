@@ -216,8 +216,20 @@ export async function POST(req) {
           : undefined,
       },
       include: {
-        ordonnance: { include: { items: true } },
-        bilanRecip: { include: { items: true } },
+        ordonnance: {
+          include: {
+            items: {
+              include: { medicament: true },
+            },
+          },
+        },
+        bilanRecip: {
+          include: {
+            items: {
+              include: { bilan: true },
+            },
+          },
+        },
         justificationRecord: true,
         courbeInfo: true,
         rendezVous: true,

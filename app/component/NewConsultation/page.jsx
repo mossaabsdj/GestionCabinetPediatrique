@@ -86,6 +86,7 @@ export default function NewConsultationPage({
 
   const [showRadioModal, setShowRadioModal] = useState(false);
   const [editingRadioIndex, setEditingRadioIndex] = useState(null);
+  const [radioForm, setRadioForm] = useState({ description: "", fichier: "" });
   const [radioUploading, setRadioUploading] = useState(false);
   const [radioUploadError, setRadioUploadError] = useState("");
 

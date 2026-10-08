@@ -36,6 +36,8 @@ import {
   TrendingUp,
 } from "lucide-react";
 import AlertModal from "@/app/component/success/page";
+import growthRefHead from "./boypc.json";
+import growthRefHeadGirls from "./girlpc.json";
 
 // --- Data poids (kg)
 const growthRefWeight = [
@@ -2489,221 +2491,7 @@ const growthRefHeightGirls = [
     sd3: "123.7",
   },
 ];
-const growthRefHead = [
-  {
-    age: "0-4 mo",
-    sd_3: "4.8",
-    " sd_2": "5.5",
-    " sd_1": "6.3",
-    m: "7.1",
-    sd1: "8",
-    sd2: "9",
-    sd3: "10.1",
-  },
-  {
-    age: "1-5 mo",
-    sd_3: "3.6",
-    " sd_2": "4.2",
-    " sd_1": "4.8",
-    m: "5.5",
-    sd1: "6.2",
-    sd2: "7",
-    sd3: "7.8",
-  },
-  {
-    age: "2-6 mo",
-    sd_3: "2.7",
-    " sd_2": "3.2",
-    " sd_1": "3.7",
-    m: "4.3",
-    sd1: "4.9",
-    sd2: "5.5",
-    sd3: "6.2",
-  },
-  {
-    age: "3-7 mo",
-    sd_3: "2.1",
-    " sd_2": "2.6",
-    " sd_1": "3",
-    m: "3.5",
-    sd1: "4",
-    sd2: "4.6",
-    sd3: "5.2",
-  },
-  {
-    age: "4-8 mo",
-    sd_3: "1.6",
-    " sd_2": "2",
-    " sd_1": "2.5",
-    m: "2.9",
-    sd1: "3.4",
-    sd2: "3.9",
-    sd3: "4.5",
-  },
-  {
-    age: "5-9 mo",
-    sd_3: "1.2",
-    " sd_2": "1.6",
-    " sd_1": "2",
-    m: "2.5",
-    sd1: "2.9",
-    sd2: "3.4",
-    sd3: "3.9",
-  },
-  {
-    age: "6-10 mo",
-    sd_3: "0.9",
-    " sd_2": "1.3",
-    " sd_1": "1.7",
-    m: "2.1",
-    sd1: "2.5",
-    sd2: "2.9",
-    sd3: "3.4",
-  },
-  {
-    age: "7-11 mo",
-    sd_3: "0.7",
-    " sd_2": "1",
-    " sd_1": "1.4",
-    m: "1.8",
-    sd1: "2.2",
-    sd2: "2.6",
-    sd3: "3",
-  },
-  {
-    age: "8-12 mo",
-    sd_3: "0.5",
-    " sd_2": "0.8",
-    " sd_1": "1.2",
-    m: "1.5",
-    sd1: "1.9",
-    sd2: "2.3",
-    sd3: "2.7",
-  },
-  {
-    age: "9-13 mo",
-    sd_3: "0.3",
-    " sd_2": "0.7",
-    " sd_1": "1",
-    m: "1.3",
-    sd1: "1.7",
-    sd2: "2.1",
-    sd3: "2.4",
-  },
-  {
-    age: "10-14 mo",
-    sd_3: "0.2",
-    " sd_2": "0.5",
-    " sd_1": "0.9",
-    m: "1.2",
-    sd1: "1.5",
-    sd2: "1.9",
-    sd3: "2.2",
-  },
-  {
-    age: "11-15 mo",
-    sd_3: "0.1",
-    " sd_2": "0.4",
-    " sd_1": "0.7",
-    m: "1",
-    sd1: "1.4",
-    sd2: "1.7",
-    sd3: "2",
-  },
-  {
-    age: "12-16 mo",
-    sd_3: "0.1",
-    " sd_2": "0.3",
-    " sd_1": "0.6",
-    m: "0.9",
-    sd1: "1.2",
-    sd2: "1.6",
-    sd3: "1.9",
-  },
-  {
-    age: "13-17 mo",
-    sd_3: "0",
-    " sd_2": "0.3",
-    " sd_1": "0.5",
-    m: "0.8",
-    sd1: "1.1",
-    sd2: "1.4",
-    sd3: "1.7",
-  },
-  {
-    age: "14-18 mo",
-    sd_3: "0",
-    " sd_2": "0.2",
-    " sd_1": "0.5",
-    m: "0.8",
-    sd1: "1",
-    sd2: "1.3",
-    sd3: "1.6",
-  },
-  {
-    age: "15-19 mo",
-    sd_3: "0",
-    " sd_2": "0.2",
-    " sd_1": "0.4",
-    m: "0.7",
-    sd1: "1",
-    sd2: "1.3",
-    sd3: "1.6",
-  },
-  {
-    age: "16-20 mo",
-    sd_3: "0",
-    " sd_2": "0.1",
-    " sd_1": "0.4",
-    m: "0.7",
-    sd1: "0.9",
-    sd2: "1.2",
-    sd3: "1.5",
-  },
-  {
-    age: "17-21 mo",
-    sd_3: "0",
-    " sd_2": "0.1",
-    " sd_1": "0.4",
-    m: "0.6",
-    sd1: "0.9",
-    sd2: "1.2",
-    sd3: "1.5",
-  },
-  {
-    age: "18-22 mo",
-    sd_3: "0",
-    " sd_2": "0.1",
-    " sd_1": "0.3",
-    m: "0.6",
-    sd1: "0.9",
-    sd2: "1.1",
-    sd3: "1.4",
-  },
-  {
-    age: "19-23 mo",
-    sd_3: "0",
-    " sd_2": "0.1",
-    " sd_1": "0.3",
-    m: "0.6",
-    sd1: "0.8",
-    sd2: "1.1",
-    sd3: "1.4",
-  },
-  {
-    age: "20-24 mo",
-    sd_3: "0",
-    " sd_2": "0",
-    " sd_1": "0.3",
-    m: "0.5",
-    sd1: "0.8",
-    sd2: "1",
-    sd3: "1.3",
-  },
-];
-const growthRefHeadGirls = [
-  /* OMS filles périmètre crânien 0–60 mois */
-];
+
 
 // Mesures enfant
 const childPoints = [
@@ -3333,6 +3121,16 @@ export default function GrowthCharts({
                 />
                 <YAxis domain={[30, 56]} />
                 <Tooltip />
+                {["sd_2", "sd_1", "m", "sd1", "sd2"].map((key) => (
+                  <Line
+                    key={key}
+                    data={isBoy ? growthRefHead : growthRefHeadGirls}
+                    dataKey={key}
+                    stroke={key === "m" ? "#9333ea" : "#94a3b8"}
+                    strokeWidth={key === "m" ? 2.5 : 1}
+                    dot={false}
+                  />
+                ))}
                 <Line
                   data={childPoints}
                   dataKey="pc"
