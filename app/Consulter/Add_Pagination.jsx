@@ -512,20 +512,10 @@ export default function PatientDashboard() {
       const justifRecord = consultation?.justificationRecord;
       const justifForm = formData?.justification;
 
-      const titre =
-        justifRecord?.titre ||
-        (typeof justifForm === "object" ? justifForm?.titre : null) ||
-        "JUSTIFICATION MÉDICALE";
-
       const texte =
         justifRecord?.texte ||
         (typeof justifForm === "string" ? justifForm : justifForm?.texte) ||
         consultation?.justification ||
-        "";
-
-      const duree =
-        justifRecord?.duree ||
-        (typeof justifForm === "object" ? justifForm?.duree : "") ||
         "";
 
       printJustification({
@@ -534,9 +524,7 @@ export default function PatientDashboard() {
         nom,
         prenom,
         age,
-        titre,
         texte,
-        duree,
       });
     } catch (err) {
       console.error("Erreur impression justification:", err);

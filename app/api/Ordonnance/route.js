@@ -94,27 +94,36 @@ export async function PUT(request) {
       );
     }
 
+    const ordonnanceId = Number(id);
+
     // 🧹 Delete existing items before updating
     await prisma.ordonnanceItem.deleteMany({
-      where: { ordonnanceId: id },
+      where: { ordonnanceId },
     });
+
+    const updateData = {
+      items: {
+        create: (items || []).map((item) => ({
+          medicamentId: Number(item.medicamentId),
+          dosage: item.dosage || null,
+          frequence: item.frequence || null,
+          duree: item.duree || null,
+          quantite: item.quantite ? Number(item.quantite) : 1,
+        })),
+      },
+    };
+
+    if (patientId) {
+      updateData.patientId = Number(patientId);
+    }
+    if (consultationId) {
+      updateData.consultationId = Number(consultationId);
+    }
 
     // 🔁 Update ordonnance and re-create items
     const updatedOrdonnance = await prisma.ordonnance.update({
-      where: { id },
-      data: {
-        patientId,
-        consultationId: consultationId || null,
-        items: {
-          create: items.map((item) => ({
-            medicamentId: item.medicamentId,
-            dosage: item.dosage,
-            frequence: item.frequence,
-            duree: item.duree,
-            quantite: item.quantite,
-          })),
-        },
-      },
+      where: { id: ordonnanceId },
+      data: updateData,
       include: {
         patient: true,
         consultation: true,
@@ -126,7 +135,7 @@ export async function PUT(request) {
   } catch (error) {
     console.error("❌ Error updating ordonnance:", error);
     return NextResponse.json(
-      { error: "Failed to update ordonnance" },
+      { error: error?.message || "Failed to update ordonnance" },
       { status: 500 },
     );
   }

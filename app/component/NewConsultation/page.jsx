@@ -23,6 +23,7 @@ import {
   ExternalLink,
   ChevronRight,
   AlertTriangle,
+  Edit3,
   Loader2,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -141,7 +142,6 @@ export default function NewConsultationPage({
             ? selectedPatient.justification
             : selectedPatient.justification
               ? {
-                  titre: "Justification médicale",
                   texte: selectedPatient.justification,
                 }
               : null),
@@ -449,7 +449,48 @@ export default function NewConsultationPage({
       unite: "g/L",
     },
   ];
+  function AttachedCard({
+    icon: Icon,
+    label,
+    detail,
+    onEdit,
+    onDelete,
+    editTitle,
+    deleteTitle,
+  }) {
+    return (
+      <div className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition-colors hover:border-[var(--color-300)]">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--color-100)] text-[var(--color-700)]">
+            <Icon className="h-[18px] w-[18px]" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-slate-900">{label}</p>
+            <p className="truncate text-xs text-slate-500">{detail}</p>
+          </div>
+        </div>
 
+        <div className="flex shrink-0 items-center gap-0.5">
+          <button
+            type="button"
+            onClick={onEdit}
+            title={editTitle}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-[var(--color-50)] hover:text-[var(--color-700)]"
+          >
+            <Edit3 size={15} />
+          </button>
+          <button
+            type="button"
+            onClick={onDelete}
+            title={deleteTitle}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+          >
+            <Trash2 size={15} />
+          </button>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="min-h-screen w-full dark:bg-gray-900 p-0">
       <div className="max-w-full mx-auto dark:bg-gray-800 rounded-2xl p-6 pt-0 md:p-6 md:pt-0">
@@ -464,18 +505,18 @@ export default function NewConsultationPage({
         {/* 🌟 SECTION ÉLÉMENTS ASSOCIÉS (AFFICHÉE EN HAUT) */}
         {/* ======================================================== */}
         <div className="mb-6">
-          {/* Empty State Banner */}
+          {/* Empty state */}
           {totalAttachedCount === 0 && (
-            <div className="p-4 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/40 flex flex-col sm:flex-row items-center justify-between gap-3 text-slate-500 text-sm">
+            <div className="flex flex-col items-center justify-between gap-3 rounded-xl border border-dashed border-[var(--color-300)] bg-[var(--color-50)]/50 p-4 text-sm sm:flex-row">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 shadow-sm text-slate-400">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-slate-400 shadow-sm ring-1 ring-slate-200">
                   <Paperclip size={18} />
                 </div>
                 <div>
-                  <p className="font-medium text-slate-700 dark:text-slate-200">
+                  <p className="font-medium text-slate-800">
                     Aucun document ou élément associé
                   </p>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-slate-500">
                     Cliquez sur &laquo; Ajouter &raquo; pour joindre une
                     ordonnance, un bilan, une radio ou planifier un rendez-vous.
                   </p>
@@ -486,7 +527,7 @@ export default function NewConsultationPage({
                 type="button"
                 size="sm"
                 onClick={() => setOpenAttachModal(true)}
-                className="bg-[var(--color-600)] hover:bg-[var(--color-700)] text-white text-xs px-3.5 py-1.5 rounded-lg shadow-sm shrink-0"
+                className="shrink-0 rounded-lg bg-[var(--color-600)] text-xs text-white hover:bg-[var(--color-700)]"
               >
                 <Plus size={14} className="mr-1.5" />
                 Ajouter
@@ -494,279 +535,148 @@ export default function NewConsultationPage({
             </div>
           )}
 
-          {/* Attached Elements Grid */}
+          {/* Attached elements */}
           {totalAttachedCount > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-              {/* 💊 Ordonnance Card */}
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {/* Ordonnance */}
               {hasOrdonnance && (
-                <div className="flex flex-col justify-between p-3.5 rounded-xl border border-blue-200 bg-blue-50/70 dark:bg-blue-950/20 shadow-sm transition hover:shadow-md">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300">
-                        <Pill size={16} />
-                      </div>
-                      <div>
-                        <span className="text-xs font-semibold tracking-wider text-blue-800 dark:text-blue-300 uppercase">
-                          Ordonnance
-                        </span>
-                        <p className="text-xs text-blue-600 dark:text-blue-400">
-                          {form.ordonnance.items.length}{" "}
-                          {form.ordonnance.items.length > 1
-                            ? "médicaments prescrits"
-                            : "médicament prescrit"}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingTab("ordonnance");
-                          setShowNewOrdonnance(true);
-                        }}
-                        className="p-1.5 rounded-lg text-blue-700 hover:bg-blue-100 dark:text-blue-300 dark:hover:bg-blue-900/40 transition"
-                        title="Modifier l'ordonnance"
-                      >
-                        <Edit2 size={15} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setDeleteDialog({
-                            open: true,
-                            type: "ordonnance",
-                            title: "Supprimer l'ordonnance",
-                            message:
-                              "Êtes-vous sûr de vouloir retirer cette ordonnance de la consultation ?",
-                          })
-                        }
-                        className="p-1.5 rounded-lg text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 transition"
-                        title="Supprimer l'ordonnance"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                <AttachedCard
+                  icon={Pill}
+                  label="Ordonnance"
+                  detail={`${form.ordonnance.items.length} ${
+                    form.ordonnance.items.length > 1
+                      ? "médicaments prescrits"
+                      : "médicament prescrit"
+                  }`}
+                  onEdit={() => {
+                    setEditingTab("ordonnance");
+                    setShowNewOrdonnance(true);
+                  }}
+                  onDelete={() =>
+                    setDeleteDialog({
+                      open: true,
+                      type: "ordonnance",
+                      title: "Supprimer l'ordonnance",
+                      message:
+                        "Êtes-vous sûr de vouloir retirer cette ordonnance de la consultation ?",
+                    })
+                  }
+                  editTitle="Modifier l'ordonnance"
+                  deleteTitle="Supprimer l'ordonnance"
+                />
               )}
 
-              {/* 🔬 Bilan Card */}
+              {/* Bilan */}
               {hasBilan && (
-                <div className="flex flex-col justify-between p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/70 dark:bg-emerald-950/20 shadow-sm transition hover:shadow-md">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300">
-                        <FlaskConical size={16} />
-                      </div>
-                      <div>
-                        <span className="text-xs font-semibold tracking-wider text-emerald-800 dark:text-emerald-300 uppercase">
-                          Bilan Biologique
-                        </span>
-                        <p className="text-xs text-emerald-600 dark:text-emerald-400">
-                          {form.bilanRecip.items.length}{" "}
-                          {form.bilanRecip.items.length > 1
-                            ? "analyses demandées"
-                            : "analyse demandée"}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingTab("labs");
-                          setShowNewOrdonnance(true);
-                        }}
-                        className="p-1.5 rounded-lg text-emerald-700 hover:bg-emerald-100 dark:text-emerald-300 dark:hover:bg-emerald-900/40 transition"
-                        title="Modifier le bilan"
-                      >
-                        <Edit2 size={15} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setDeleteDialog({
-                            open: true,
-                            type: "bilan",
-                            title: "Supprimer le bilan",
-                            message:
-                              "Êtes-vous sûr de vouloir retirer ce bilan biologique de la consultation ?",
-                          })
-                        }
-                        className="p-1.5 rounded-lg text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 transition"
-                        title="Supprimer le bilan"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                <AttachedCard
+                  icon={FlaskConical}
+                  label="Bilan biologique"
+                  detail={`${form.bilanRecip.items.length} ${
+                    form.bilanRecip.items.length > 1
+                      ? "analyses demandées"
+                      : "analyse demandée"
+                  }`}
+                  onEdit={() => {
+                    setEditingTab("labs");
+                    setShowNewOrdonnance(true);
+                  }}
+                  onDelete={() =>
+                    setDeleteDialog({
+                      open: true,
+                      type: "bilan",
+                      title: "Supprimer le bilan",
+                      message:
+                        "Êtes-vous sûr de vouloir retirer ce bilan biologique de la consultation ?",
+                    })
+                  }
+                  editTitle="Modifier le bilan"
+                  deleteTitle="Supprimer le bilan"
+                />
               )}
 
-              {/* 📄 Justification Card */}
+              {/* Justification */}
               {hasJustification && (
-                <div className="flex flex-col justify-between p-3.5 rounded-xl border border-purple-200 bg-purple-50/70 dark:bg-purple-950/20 shadow-sm transition hover:shadow-md">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 rounded-lg bg-purple-100 text-purple-700 dark:bg-purple-900/60 dark:text-purple-300">
-                        <FileText size={16} />
-                      </div>
-                      <div>
-                        <span className="text-xs font-semibold tracking-wider text-purple-800 dark:text-purple-300 uppercase">
-                          Justification Médicale
-                        </span>
-                        <p className="text-xs text-purple-600 dark:text-purple-400 font-medium truncate max-w-[200px]">
-                          {form.justification?.titre || "Certificat médical"}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingTab("justif");
-                          setShowNewOrdonnance(true);
-                        }}
-                        className="p-1.5 rounded-lg text-purple-700 hover:bg-purple-100 dark:text-purple-300 dark:hover:bg-purple-900/40 transition"
-                        title="Modifier la justification"
-                      >
-                        <Edit2 size={15} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setDeleteDialog({
-                            open: true,
-                            type: "justification",
-                            title: "Supprimer la justification",
-                            message:
-                              "Êtes-vous sûr de vouloir retirer cette justification / certificat médical ?",
-                          })
-                        }
-                        className="p-1.5 rounded-lg text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 transition"
-                        title="Supprimer la justification"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                <AttachedCard
+                  icon={FileText}
+                  label="Justification médicale"
+                  detail={
+                    typeof form.justification === "string"
+                      ? form.justification
+                      : form.justification?.texte || "Justification médicale"
+                  }
+                  onEdit={() => {
+                    setEditingTab("justif");
+                    setShowNewOrdonnance(true);
+                  }}
+                  onDelete={() =>
+                    setDeleteDialog({
+                      open: true,
+                      type: "justification",
+                      title: "Supprimer la justification",
+                      message:
+                        "Êtes-vous sûr de vouloir retirer cette justification / certificat médical ?",
+                    })
+                  }
+                  editTitle="Modifier la justification"
+                  deleteTitle="Supprimer la justification"
+                />
               )}
 
-              {/* 🩻 Radio Cards */}
+              {/* Radios */}
               {hasRadios &&
                 form.radios.map((radio, idx) => (
-                  <div
+                  <AttachedCard
                     key={radio.id || idx}
-                    className="flex flex-col justify-between p-3.5 rounded-xl border border-indigo-200 bg-indigo-50/70 dark:bg-indigo-950/20 shadow-sm transition hover:shadow-md"
-                  >
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div className="flex items-center gap-2">
-                        <div className="p-1.5 rounded-lg bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300">
-                          <ImageIcon size={16} />
-                        </div>
-                        <div>
-                          <span className="text-xs font-semibold tracking-wider text-indigo-800 dark:text-indigo-300 uppercase">
-                            Radio / Imagerie
-                          </span>
-                          <p className="text-xs font-medium text-slate-800 dark:text-slate-200">
-                            {radio.description || "Examen radiologique"}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingRadioIndex(idx);
-                            setRadioForm({
-                              description: radio.description || "",
-                              fichier: radio.fichier || "",
-                            });
-                            setShowRadioModal(true);
-                          }}
-                          className="p-1.5 rounded-lg text-indigo-700 hover:bg-indigo-100 dark:text-indigo-300 dark:hover:bg-indigo-900/40 transition"
-                          title="Modifier la radio"
-                        >
-                          <Edit2 size={15} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setDeleteDialog({
-                              open: true,
-                              type: "radio",
-                              index: idx,
-                              title: "Supprimer la radio",
-                              message: `Êtes-vous sûr de vouloir retirer cet examen radio (${radio.description || "sans nom"}) ?`,
-                            })
-                          }
-                          className="p-1.5 rounded-lg text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 transition"
-                          title="Supprimer la radio"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                    icon={ImageIcon}
+                    label="Radio / Imagerie"
+                    detail={radio.description || "Examen radiologique"}
+                    onEdit={() => {
+                      setEditingRadioIndex(idx);
+                      setRadioForm({
+                        description: radio.description || "",
+                        fichier: radio.fichier || "",
+                      });
+                      setShowRadioModal(true);
+                    }}
+                    onDelete={() =>
+                      setDeleteDialog({
+                        open: true,
+                        type: "radio",
+                        index: idx,
+                        title: "Supprimer la radio",
+                        message: `Êtes-vous sûr de vouloir retirer cet examen radio (${radio.description || "sans nom"}) ?`,
+                      })
+                    }
+                    editTitle="Modifier la radio"
+                    deleteTitle="Supprimer la radio"
+                  />
                 ))}
 
-              {/* 📅 Prochain Rendez-vous Card */}
+              {/* Prochain rendez-vous */}
               {hasRdv && (
-                <div className="flex flex-col justify-between p-3.5 rounded-xl border border-amber-200 bg-amber-50/70 dark:bg-amber-950/20 shadow-sm transition hover:shadow-md">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-300">
-                        <Calendar size={16} />
-                      </div>
-                      <div>
-                        <span className="text-xs font-semibold tracking-wider text-amber-800 dark:text-amber-300 uppercase">
-                          Prochain Rendez-vous
-                        </span>
-                        <p className="text-xs font-medium text-amber-900 dark:text-amber-200">
-                          {formatRdvDate(form.rendezVousDate)}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setRdvForm({
-                            date: form.rendezVousDate,
-                            description: form.rendezVousDescription || "",
-                          });
-                          setShowRendezVousModal(true);
-                        }}
-                        className="p-1.5 rounded-lg text-amber-700 hover:bg-amber-100 dark:text-amber-300 dark:hover:bg-amber-900/40 transition"
-                        title="Modifier le rendez-vous"
-                      >
-                        <Edit2 size={15} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setDeleteDialog({
-                            open: true,
-                            type: "rendezVous",
-                            title: "Supprimer le rendez-vous",
-                            message:
-                              "Êtes-vous sûr de vouloir supprimer ce prochain rendez-vous ?",
-                          })
-                        }
-                        className="p-1.5 rounded-lg text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 transition"
-                        title="Supprimer le rendez-vous"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                <AttachedCard
+                  icon={Calendar}
+                  label="Prochain rendez-vous"
+                  detail={formatRdvDate(form.rendezVousDate)}
+                  onEdit={() => {
+                    setRdvForm({
+                      date: form.rendezVousDate,
+                      description: form.rendezVousDescription || "",
+                    });
+                    setShowRendezVousModal(true);
+                  }}
+                  onDelete={() =>
+                    setDeleteDialog({
+                      open: true,
+                      type: "rendezVous",
+                      title: "Supprimer le rendez-vous",
+                      message:
+                        "Êtes-vous sûr de vouloir supprimer ce prochain rendez-vous ?",
+                    })
+                  }
+                  editTitle="Modifier le rendez-vous"
+                  deleteTitle="Supprimer le rendez-vous"
+                />
               )}
             </div>
           )}

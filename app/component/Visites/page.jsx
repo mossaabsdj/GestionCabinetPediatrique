@@ -211,9 +211,7 @@ export default function PatientVisits({
         nom,
         prenom,
         age: "",
-        titre: justif.titre || "JUSTIFICATION MÉDICALE",
         texte: justif.texte,
-        duree: justif.duree || "",
       });
     } catch (error) {
       console.error("Erreur impression justification:", error);
@@ -998,20 +996,10 @@ export default function PatientVisits({
                   </div>
 
                   <div className="mt-2 bg-white rounded-lg shadow-sm p-4 border border-gray-100">
-                    {selectedVisit.justificationRecord?.titre && (
-                      <h4 className="font-bold text-gray-800 text-sm mb-2">
-                        {selectedVisit.justificationRecord.titre}
-                      </h4>
-                    )}
                     <p className="text-gray-800 text-sm whitespace-pre-wrap leading-relaxed">
                       {selectedVisit.justificationRecord?.texte ||
                         selectedVisit.justification}
                     </p>
-                    {selectedVisit.justificationRecord?.duree && (
-                      <div className="mt-2 text-xs font-semibold text-[var(--color-700)]">
-                        Durée : {selectedVisit.justificationRecord.duree}
-                      </div>
-                    )}
                   </div>
                 </div>
               )}

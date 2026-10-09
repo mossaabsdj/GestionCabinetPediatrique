@@ -147,15 +147,7 @@ export async function POST(req) {
               create: {
                 patientId: Number(data.patientId),
                 createdAt: data.createdAt ? new Date(data.createdAt) : undefined,
-                titre: (data.justificationRecord || data.justification).titre || null,
                 texte: (data.justificationRecord || data.justification).texte || "",
-                duree: (data.justificationRecord || data.justification).duree || null,
-                dateDebut: (data.justificationRecord || data.justification).dateDebut
-                  ? new Date((data.justificationRecord || data.justification).dateDebut)
-                  : undefined,
-                dateFin: (data.justificationRecord || data.justification).dateFin
-                  ? new Date((data.justificationRecord || data.justification).dateFin)
-                  : undefined,
               },
             }
           : undefined,
@@ -376,18 +368,10 @@ export async function PUT(req) {
           create: {
             consultationId: Number(id),
             patientId: Number(resolvedPatientId),
-            titre: justifPayload.titre || null,
             texte: justifPayload.texte,
-            duree: justifPayload.duree || null,
-            dateDebut: justifPayload.dateDebut ? new Date(justifPayload.dateDebut) : null,
-            dateFin: justifPayload.dateFin ? new Date(justifPayload.dateFin) : null,
           },
           update: {
-            titre: justifPayload.titre || null,
             texte: justifPayload.texte,
-            duree: justifPayload.duree || null,
-            dateDebut: justifPayload.dateDebut ? new Date(justifPayload.dateDebut) : null,
-            dateFin: justifPayload.dateFin ? new Date(justifPayload.dateFin) : null,
           },
         });
       } else if (justifPayload === null) {

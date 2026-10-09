@@ -12,9 +12,10 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Calendar, Trash2, FileText, Clock, Loader2 } from "lucide-react";
+import { Calendar, Trash2, FileText, Clock, Loader2, Edit2 } from "lucide-react";
 import { printOrdonnance, printBilan, printJustification } from "@/lib/printer";
 import AlertModal from "@/app/component/success/page";
+import NewOrdanance from "@/app/component/NewOrdanance/page";
 // ✅ Pediatric Age Calculation
 function calculateAge(dateString) {
   if (!dateString) return "";
@@ -79,6 +80,11 @@ export default function OrdBilanPage({
   const showAlert = (type, title, message) => {
     setAlertConfig({ isOpen: true, type, title, message });
   };
+
+  // ✏️ Document Edit States & Handlers
+  const [editingDoc, setEditingDoc] = useState(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
   const [filtredOrd, setFiltredOrd] = useState([]);
   const [filtredBilan, setFiltredBilan] = useState([]);
   const [filtredJustif, setFiltredJustif] = useState([]);
@@ -122,6 +128,183 @@ export default function OrdBilanPage({
     }
   };
 
+  // ✏️ Handlers to trigger editing per document type
+  const handleEditOrdonnance = (ord) => {
+    setEditingDoc({
+      type: "ord",
+      item: ord,
+      initialData: {
+        ordonnance: {
+          items:
+            ord.items?.map((it) => ({
+              medicamentId: it.medicamentId,
+              nom: it.medicament?.nom || it.nom || "",
+              form: it.medicament?.form || it.form || "",
+              dosage: it.dosage || "",
+              frequence: it.frequence || "",
+              duree: it.duree || "",
+              quantite: it.quantite ? Number(it.quantite) : 1,
+            })) || [],
+        },
+      },
+    });
+  };
+
+  const handleEditBilan = (bilan) => {
+    setEditingDoc({
+      type: "bilan",
+      item: bilan,
+      initialData: {
+        bilanRecip: {
+          items:
+            bilan.items?.map((it) => ({
+              id: it.bilanId || it.bilan?.id || it.id,
+              nom: it.bilan?.nom || it.nom || "",
+              resultat: it.resultat || null,
+              remarque: it.remarque || null,
+            })) || [],
+        },
+      },
+    });
+  };
+
+  const handleEditJustification = (justif) => {
+    setEditingDoc({
+      type: "justif",
+      item: justif,
+      initialData: {
+        justification: {
+          texte: justif.texte || "",
+        },
+      },
+    });
+  };
+
+  const handleSaveEditedDocument = async (payload) => {
+    if (!editingDoc) return;
+    setIsSavingEdit(true);
+    try {
+      if (editingDoc.type === "ord") {
+        const items = payload.ordonnance?.items || [];
+        if (!items || items.length === 0) {
+          showAlert(
+            "warning",
+            "Attention",
+            "Veuillez ajouter au moins un médicament dans l'ordonnance.",
+          );
+          setIsSavingEdit(false);
+          return;
+        }
+        const res = await fetch("/api/Ordonnance", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: editingDoc.item.id,
+            patientId: editingDoc.item.patientId,
+            consultationId: editingDoc.item.consultationId,
+            items: items.map((it) => ({
+              medicamentId: it.medicamentId,
+              dosage: it.dosage || "",
+              frequence: it.frequence || "",
+              duree: it.duree || "",
+              quantite: it.quantite ? Number(it.quantite) : 1,
+            })),
+          }),
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(
+            errData.error || "Erreur lors de la modification de l'ordonnance.",
+          );
+        }
+
+        await fetchOrdonnances();
+        setEditingDoc(null);
+        showAlert("success", "Succès", "L'ordonnance a été modifiée avec succès.");
+      } else if (editingDoc.type === "bilan") {
+        const items = payload.bilanRecip?.items || [];
+        if (!items || items.length === 0) {
+          showAlert(
+            "warning",
+            "Attention",
+            "Veuillez ajouter au moins un examen biologique dans le bilan.",
+          );
+          setIsSavingEdit(false);
+          return;
+        }
+        const res = await fetch("/api/BilanRecip", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: editingDoc.item.id,
+            items: items.map((it) => ({
+              bilanId: it.id || it.bilanId,
+              resultat: it.resultat || null,
+              remarque: it.remarque || null,
+            })),
+          }),
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(
+            errData.error || "Erreur lors de la modification du bilan.",
+          );
+        }
+
+        await fetchBilans();
+        setEditingDoc(null);
+        showAlert("success", "Succès", "Le bilan a été modifié avec succès.");
+      } else if (editingDoc.type === "justif") {
+        const justifData = payload.justification;
+        if (!justifData || !justifData.texte || !justifData.texte.trim()) {
+          showAlert(
+            "warning",
+            "Attention",
+            "Le texte de la justification ne peut pas être vide.",
+          );
+          setIsSavingEdit(false);
+          return;
+        }
+        const res = await fetch("/api/Justifications", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: editingDoc.item.id,
+            texte: justifData.texte.trim(),
+          }),
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(
+            errData.error ||
+              "Erreur lors de la modification de la justification.",
+          );
+        }
+
+        await fetchJustifications();
+        setEditingDoc(null);
+        showAlert(
+          "success",
+          "Succès",
+          "La justification médicale a été modifiée avec succès.",
+        );
+      }
+    } catch (err) {
+      console.error("❌ Error saving edited document:", err);
+      showAlert(
+        "error",
+        "Erreur",
+        err?.message ||
+          "Erreur lors de l'enregistrement des modifications.",
+      );
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
   useEffect(() => {
     fetchOrdonnances();
     fetchBilans();
@@ -152,7 +335,6 @@ export default function OrdBilanPage({
         const matchesQuery =
           !q ||
           v.id.toString().includes(q) ||
-          (v.titre && v.titre.toLowerCase().includes(q)) ||
           (v.texte && v.texte.toLowerCase().includes(q));
         const matchesDate = isSameDate(v.createdAt, dateFilter);
         return matchesQuery && matchesDate;
@@ -386,11 +568,7 @@ export default function OrdBilanPage({
         nom,
         prenom,
         age,
-        titre: justif.titre || "JUSTIFICATION MÉDICALE",
         texte: justif.texte,
-        duree: justif.duree,
-        dateDebut: justif.dateDebut,
-        dateFin: justif.dateFin,
       });
     } catch (err) {
       console.error("Erreur lors de l'impression de la justification:", err);
@@ -407,11 +585,7 @@ export default function OrdBilanPage({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: justif.id,
-          titre: justif.titre,
           texte: justif.texte,
-          duree: justif.duree,
-          dateDebut: justif.dateDebut,
-          dateFin: justif.dateFin,
         }),
       });
 
@@ -524,17 +698,32 @@ export default function OrdBilanPage({
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-8 w-8 hover:bg-red-50"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                confirmDelete("ord", ord);
-                              }}
-                            >
-                              <Trash2 size={18} className="text-red-500" />
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 hover:bg-blue-50 text-blue-600"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditOrdonnance(ord);
+                                }}
+                                title="Modifier l'ordonnance"
+                              >
+                                <Edit2 size={16} />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 hover:bg-red-50 text-red-500"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  confirmDelete("ord", ord);
+                                }}
+                                title="Supprimer l'ordonnance"
+                              >
+                                <Trash2 size={16} />
+                              </Button>
+                            </div>
                           </td>
                         </tr>
 
@@ -589,7 +778,18 @@ export default function OrdBilanPage({
                                 </table>
                               </div>
 
-                              <div className="flex justify-end mt-4">
+                              <div className="flex justify-end gap-2 mt-4">
+                                <Button
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedOrdonnance(null);
+                                    handleEditOrdonnance(ord);
+                                  }}
+                                  className="text-blue-600 border-blue-200 hover:bg-blue-50 flex items-center gap-2"
+                                >
+                                  <Edit2 size={16} />
+                                  Modifier l'Ordonnance
+                                </Button>
                                 <Button
                                   onClick={() =>
                                     handlePrintOrdonnanceElectron(ord)
@@ -668,17 +868,32 @@ export default function OrdBilanPage({
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-8 w-8 hover:bg-red-50"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                confirmDelete("bilan", bilan);
-                              }}
-                            >
-                              <Trash2 size={18} className="text-red-500" />
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 hover:bg-blue-50 text-blue-600"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditBilan(bilan);
+                                }}
+                                title="Modifier le bilan"
+                              >
+                                <Edit2 size={16} />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 hover:bg-red-50 text-red-500"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  confirmDelete("bilan", bilan);
+                                }}
+                                title="Supprimer le bilan"
+                              >
+                                <Trash2 size={16} />
+                              </Button>
+                            </div>
                           </td>
                         </tr>
 
@@ -756,6 +971,18 @@ export default function OrdBilanPage({
 
                                 <div className="flex justify-end gap-2 mt-4">
                                   <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                      const currentBilan = selectedBilan;
+                                      setSelectedBilan(null);
+                                      handleEditBilan(currentBilan);
+                                    }}
+                                    className="text-blue-600 border-blue-200 hover:bg-blue-50 flex items-center gap-2"
+                                  >
+                                    <Edit2 size={16} />
+                                    Modifier les analyses
+                                  </Button>
+                                  <Button
                                     onClick={() =>
                                       handlePrintBilanElectron(selectedBilan)
                                     }
@@ -810,7 +1037,7 @@ export default function OrdBilanPage({
                         #
                       </th>
                       <th className="text-left px-6 py-4 font-semibold text-sm uppercase tracking-wider">
-                        Objet / Titre
+                        Justification
                       </th>
                       <th className="text-left px-6 py-4 font-semibold text-sm uppercase tracking-wider">
                         Date
@@ -841,21 +1068,9 @@ export default function OrdBilanPage({
                             </span>
                           </td>
                           <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-gray-800">
-                                {justif.titre || "Justification médicale"}
-                              </span>
-                              {justif.duree && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
-                                  <Clock size={12} /> {justif.duree}
-                                </span>
-                              )}
-                            </div>
-                            {justif.texte && (
-                              <p className="text-xs text-gray-500 line-clamp-1 mt-0.5">
-                                {justif.texte}
-                              </p>
-                            )}
+                            <p className="font-semibold text-gray-800 line-clamp-2">
+                              {justif.texte || "Justification médicale"}
+                            </p>
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-2 text-sm text-gray-700 font-medium">
@@ -869,17 +1084,32 @@ export default function OrdBilanPage({
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-8 w-8 hover:bg-red-50"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                confirmDelete("justif", justif);
-                              }}
-                            >
-                              <Trash2 size={18} className="text-red-500" />
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 hover:bg-purple-50 text-purple-600"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditJustification(justif);
+                                }}
+                                title="Modifier la justification"
+                              >
+                                <Edit2 size={16} />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 hover:bg-red-50 text-red-500"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  confirmDelete("justif", justif);
+                                }}
+                                title="Supprimer la justification"
+                              >
+                                <Trash2 size={16} />
+                              </Button>
+                            </div>
                           </td>
                         </tr>
 
@@ -893,103 +1123,13 @@ export default function OrdBilanPage({
                             </DialogHeader>
 
                             <div className="mt-4 space-y-4">
-                              {/* Titre & Durée */}
-                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                <div className="sm:col-span-2">
-                                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                                    Objet / Titre
-                                  </label>
-                                  <input
-                                    type="text"
-                                    value={selectedJustification.titre || ""}
-                                    onChange={(e) =>
-                                      handleChangeJustification(
-                                        selectedJustification.id,
-                                        "titre",
-                                        e.target.value,
-                                      )
-                                    }
-                                    placeholder="Ex: Arrêt de travail / Dispense de sport"
-                                    className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                                    Durée
-                                  </label>
-                                  <input
-                                    type="text"
-                                    value={selectedJustification.duree || ""}
-                                    onChange={(e) =>
-                                      handleChangeJustification(
-                                        selectedJustification.id,
-                                        "duree",
-                                        e.target.value,
-                                      )
-                                    }
-                                    placeholder="Ex: 7 jours"
-                                    className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none"
-                                  />
-                                </div>
-                              </div>
-
-                              {/* Dates */}
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div>
-                                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                                    Date de début (optionnel)
-                                  </label>
-                                  <input
-                                    type="date"
-                                    value={
-                                      selectedJustification.dateDebut
-                                        ? new Date(selectedJustification.dateDebut)
-                                            .toISOString()
-                                            .slice(0, 10)
-                                        : ""
-                                    }
-                                    onChange={(e) =>
-                                      handleChangeJustification(
-                                        selectedJustification.id,
-                                        "dateDebut",
-                                        e.target.value || null,
-                                      )
-                                    }
-                                    className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                                    Date de fin (optionnel)
-                                  </label>
-                                  <input
-                                    type="date"
-                                    value={
-                                      selectedJustification.dateFin
-                                        ? new Date(selectedJustification.dateFin)
-                                            .toISOString()
-                                            .slice(0, 10)
-                                        : ""
-                                    }
-                                    onChange={(e) =>
-                                      handleChangeJustification(
-                                        selectedJustification.id,
-                                        "dateFin",
-                                        e.target.value || null,
-                                      )
-                                    }
-                                    className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none"
-                                  />
-                                </div>
-                              </div>
-
                               {/* Texte médical */}
                               <div>
                                 <label className="block text-xs font-semibold text-gray-700 mb-1">
-                                  Description / Texte de la justification
+                                  Texte de la justification
                                 </label>
                                 <textarea
-                                  rows={6}
+                                  rows={8}
                                   value={selectedJustification.texte || ""}
                                   onChange={(e) =>
                                     handleChangeJustification(
@@ -1105,6 +1245,50 @@ export default function OrdBilanPage({
         title={alertConfig.title}
         message={alertConfig.message}
       />
+
+      {/* ✏️ Modal Modifier Document */}
+      {editingDoc && (
+        <NewOrdanance
+          open={!!editingDoc}
+          onOpenChange={(open) => {
+            if (!isSavingEdit && !open) {
+              setEditingDoc(null);
+            }
+          }}
+          selectedPatient={selectedPatient}
+          initialTab={
+            editingDoc.type === "ord"
+              ? "ordonnance"
+              : editingDoc.type === "bilan"
+              ? "labs"
+              : "justif"
+          }
+          singleTab={
+            editingDoc.type === "ord"
+              ? "ordonnance"
+              : editingDoc.type === "bilan"
+              ? "labs"
+              : "justif"
+          }
+          title={
+            editingDoc.type === "ord"
+              ? `Modifier l'Ordonnance #${editingDoc.item.id}`
+              : editingDoc.type === "bilan"
+              ? `Modifier le Bilan #${editingDoc.item.id}`
+              : `Modifier la Justification #${editingDoc.item.id}`
+          }
+          saveButtonText={
+            editingDoc.type === "ord"
+              ? "Enregistrer l'ordonnance"
+              : editingDoc.type === "bilan"
+              ? "Enregistrer le bilan"
+              : "Enregistrer la justification"
+          }
+          initialData={editingDoc.initialData}
+          onsave={handleSaveEditedDocument}
+          isSaving={isSavingEdit}
+        />
+      )}
     </div>
   );
 }

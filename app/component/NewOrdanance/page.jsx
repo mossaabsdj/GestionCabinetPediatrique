@@ -45,8 +45,14 @@ export default function PrescriptionModal({
   selectedPatient,
   initialData = null,
   initialTab = "ordonnance",
+  singleTab = null,
+  title = null,
+  saveButtonText = null,
+  isSaving = false,
 }) {
-  const [activeTab, setActiveTab] = useState(initialTab || "ordonnance");
+  const [activeTab, setActiveTab] = useState(
+    singleTab || initialTab || "ordonnance",
+  );
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState([]);
   const [selectedMed, setSelectedMed] = useState(null);
@@ -309,9 +315,15 @@ export default function PrescriptionModal({
       setExistDialog(true);
       return;
     }
-    const finalDosage = (tmpDose === "autre" ? customDose : tmpDose || "").trim();
-    const finalFrequence = (tmpfreq === "autre" ? customFreq : tmpfreq || "").trim();
-    const finalDuree = (tmpDuration === "autre" ? customDuration : tmpDuration || "").trim();
+    const finalDosage = (
+      tmpDose === "autre" ? customDose : tmpDose || ""
+    ).trim();
+    const finalFrequence = (
+      tmpfreq === "autre" ? customFreq : tmpfreq || ""
+    ).trim();
+    const finalDuree = (
+      tmpDuration === "autre" ? customDuration : tmpDuration || ""
+    ).trim();
     const finalQuantite = Number(tmpQuantite) > 0 ? Number(tmpQuantite) : 1;
 
     const item = {
@@ -363,27 +375,26 @@ export default function PrescriptionModal({
     setLabItems(labItems.filter((i) => i !== exam));
   }
 
-  function handleSave() {
+  async function handleSave() {
     const ordonnance = {
       items: prescriptionItems,
     };
     const bilanRecip = {
       items: labItems,
     };
-    const selectedJustifObj = justifTypes.find(
-      (t) => t.id === justifType || t.id === Number(justifType),
-    );
+
     const payload = {
       ordonnance: ordonnance,
       bilanRecip: bilanRecip,
       justification: justifText.trim()
         ? {
-            titre: selectedJustifObj?.nom || "Justification médicale",
             texte: justifText.trim(),
           }
         : null,
     };
-    onsave(payload);
+    if (onsave) {
+      await onsave(payload);
+    }
     console.log("✅ Saved:", payload);
   }
 
@@ -435,26 +446,53 @@ export default function PrescriptionModal({
   // Synchronize initial data and tab when dialog opens
   useEffect(() => {
     if (open) {
-      if (initialTab) {
-        setActiveTab(initialTab);
-      }
+      const targetTab = singleTab || initialTab || "ordonnance";
+      setActiveTab(targetTab);
+
       if (initialData) {
         if (Array.isArray(initialData.ordonnance?.items)) {
-          setPrescriptionItems(initialData.ordonnance.items);
+          setPrescriptionItems(
+            initialData.ordonnance.items.map((it) => ({
+              medicamentId: it.medicamentId || it.id,
+              nom: it.nom || it.medicament?.nom || "",
+              form: it.form || it.medicament?.form || "",
+              dosage: it.dosage || "",
+              frequence: it.frequence || "",
+              duree: it.duree || "",
+              quantite: it.quantite ? Number(it.quantite) : 1,
+            })),
+          );
+        } else {
+          setPrescriptionItems([]);
         }
+
         if (Array.isArray(initialData.bilanRecip?.items)) {
-          setLabItems(initialData.bilanRecip.items);
+          setLabItems(
+            initialData.bilanRecip.items.map((it) => ({
+              id: it.bilanId || it.bilan?.id || it.id,
+              nom: it.nom || it.bilan?.nom || "",
+              resultat: it.resultat || null,
+              remarque: it.remarque || null,
+            })),
+          );
+        } else {
+          setLabItems([]);
         }
+
         if (initialData.justification) {
-          const txt =
-            typeof initialData.justification === "string"
-              ? initialData.justification
-              : initialData.justification.texte || "";
+          const justif = initialData.justification;
+          const txt = typeof justif === "string" ? justif : justif.texte || "";
           setJustifText(txt);
+        } else {
+          setJustifText("");
         }
+      } else {
+        setPrescriptionItems([]);
+        setLabItems([]);
+        setJustifText("");
       }
     }
-  }, [open, initialData, initialTab]);
+  }, [open, initialData, initialTab, singleTab]);
 
   useEffect(() => {
     if (justifType && justifType !== "autre") {
@@ -639,10 +677,6 @@ export default function PrescriptionModal({
 
       const nextConsultationId = (data.lastConsultationId || 0) + 1;
       const nextJustificationId = (data.lastJustificationId || 0) + 1;
-      const selectedObj = justifTypes.find(
-        (t) => t.id === justifType || t.id === Number(justifType),
-      );
-
       // 🖨️ Send to printer
       printJustification({
         consultationId: nextConsultationId,
@@ -650,12 +684,14 @@ export default function PrescriptionModal({
         nom,
         prenom,
         age,
-        titre: selectedObj?.nom || "JUSTIFICATION MÉDICALE",
         texte: justifText.trim(),
       });
     } catch (error) {
       console.error("Erreur lors de l'impression de la justification:", error);
-      showAlert("Erreur d'impression", "Impossible d'imprimer la justification.");
+      showAlert(
+        "Erreur d'impression",
+        "Impossible d'imprimer la justification.",
+      );
     } finally {
       setPrintingJustif(false);
     }
@@ -765,7 +801,10 @@ export default function PrescriptionModal({
       setNewMedicament(false);
     } catch (err) {
       console.error("Erreur lors de l'ajout", err);
-      showAlert("Erreur", err?.message || "Impossible d'ajouter le médicament.");
+      showAlert(
+        "Erreur",
+        err?.message || "Impossible d'ajouter le médicament.",
+      );
     } finally {
       setLoading(false);
     }
@@ -783,36 +822,51 @@ export default function PrescriptionModal({
           }
         }}
       >
+        {title && (
+          <div className="px-6 pt-4 pb-3 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-[var(--color-50)] to-white">
+            <h2 className="text-xl font-bold text-[var(--color-700)] flex items-center gap-2">
+              <FileText className="w-5 h-5 text-[var(--color-600)]" />
+              {title}
+            </h2>
+          </div>
+        )}
         <motion.div
           className="p-4 "
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3 }}
         >
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid grid-cols-3 bg-gradient-to-r from-[var(--color-100)] to-[var(--color-50)] text-[var(--color-700)] rounded-xl p-1 shadow-sm">
-              <TabsTrigger
-                value="ordonnance"
-                className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md transition-all duration-200"
-              >
-                <Pill className="w-4 h-4 mr-2" />
-                Ordonnance
-              </TabsTrigger>
-              <TabsTrigger
-                value="labs"
-                className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md transition-all duration-200"
-              >
-                <FlaskConical className="w-4 h-4 mr-2" />
-                Bilans & Analyses
-              </TabsTrigger>
-              <TabsTrigger
-                value="justif"
-                className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md transition-all duration-200"
-              >
-                <FileText className="w-4 h-4 mr-2" />
-                Justification
-              </TabsTrigger>
-            </TabsList>
+          <Tabs
+            value={activeTab}
+            onValueChange={(val) => {
+              if (!singleTab) setActiveTab(val);
+            }}
+          >
+            {!singleTab && (
+              <TabsList className="grid grid-cols-3 bg-gradient-to-r from-[var(--color-100)] to-[var(--color-50)] text-[var(--color-700)] rounded-xl p-1 shadow-sm">
+                <TabsTrigger
+                  value="ordonnance"
+                  className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md transition-all duration-200"
+                >
+                  <Pill className="w-4 h-4 mr-2" />
+                  Ordonnance
+                </TabsTrigger>
+                <TabsTrigger
+                  value="labs"
+                  className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md transition-all duration-200"
+                >
+                  <FlaskConical className="w-4 h-4 mr-2" />
+                  Bilans & Analyses
+                </TabsTrigger>
+                <TabsTrigger
+                  value="justif"
+                  className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-md transition-all duration-200"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  Justification
+                </TabsTrigger>
+              </TabsList>
+            )}
 
             {/* Ordonnance */}
             <TabsContent value="ordonnance">
@@ -1612,7 +1666,7 @@ export default function PrescriptionModal({
                           onValueChange={(v) => setJustifType(v)}
                           value={justifType}
                         >
-                          <SelectTrigger className="w-full border-[var(--color-300)] focus:ring-2 focus:ring-[var(--color-400)]">
+                          <SelectTrigger className="w-full sm:w-1/2 border-[var(--color-300)] focus:ring-2 focus:ring-[var(--color-400)] mt-1">
                             <SelectValue placeholder="Choisir un modèle..." />
                           </SelectTrigger>
                           <SelectContent>
@@ -1627,6 +1681,7 @@ export default function PrescriptionModal({
                           </SelectContent>
                         </Select>
                       </div>
+
                       <div>
                         <Label
                           htmlFor="justif-text"
@@ -1636,7 +1691,7 @@ export default function PrescriptionModal({
                         </Label>
                         <textarea
                           id="justif-text"
-                          rows={8}
+                          rows={6}
                           value={justifText}
                           onChange={(e) => setJustifText(e.target.value)}
                           className="w-full border-2 border-[var(--color-200)] rounded-xl p-4 mt-2 focus:ring-2 focus:ring-[var(--color-400)] focus:border-[var(--color-400)] transition-all"
@@ -1652,28 +1707,44 @@ export default function PrescriptionModal({
 
           {/* Footer Save */}
           <motion.div
-            className="mt-6 flex justify-end gap-3"
+            className="mt-6 flex justify-between items-center pt-4 border-t border-gray-200"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
+            {singleTab ? (
+              <Button
+                variant="outline"
+                className="text-gray-700 border-gray-300 hover:bg-gray-100"
+                onClick={() => onOpenChange(false)}
+                disabled={isSaving}
+              >
+                Annuler
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                className="text-red-500 hover:bg-red-50 transition-all duration-200"
+                onClick={() => {
+                  setPrescriptionItems([]);
+                  setLabItems([]);
+                  setJustifType(undefined);
+                  setJustifText("");
+                }}
+              >
+                Tout réinitialiser
+              </Button>
+            )}
             <Button
-              variant="ghost"
-              className="text-red-500 hover:bg-red-50 transition-all duration-200"
-              onClick={() => {
-                setPrescriptionItems([]);
-                setLabItems([]);
-                setJustifType(undefined);
-                setJustifText("");
-              }}
-            >
-              Tout réinitialiser
-            </Button>
-            <Button
-              className="bg-gradient-to-r from-[var(--color-600)] to-[var(--color-700)] hover:from-[var(--color-700)] hover:to-[var(--color-800)] shadow-lg hover:shadow-xl transition-all duration-200"
+              className="bg-gradient-to-r from-[var(--color-600)] to-[var(--color-700)] hover:from-[var(--color-700)] hover:to-[var(--color-800)] shadow-lg hover:shadow-xl transition-all duration-200 text-white flex items-center gap-2"
               onClick={handleSave}
+              disabled={isSaving}
             >
-              Sauvegarder tout
+              {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+              {saveButtonText ||
+                (singleTab
+                  ? "Enregistrer les modifications"
+                  : "Sauvegarder tout")}
             </Button>
           </motion.div>
         </motion.div>
