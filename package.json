@@ -14,7 +14,8 @@
     "electron:dev": "concurrently \"npm run dev\" \"npm run electron\"",
     "electron": "electron main.js",
     "electron-build": "electron-builder --dir",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "node test.js"
   },
   "build": {
     "appId": "com.mossaabsdj.dr-amel-pediatre",
