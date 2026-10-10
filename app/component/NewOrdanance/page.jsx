@@ -812,7 +812,7 @@ export default function PrescriptionModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-4xl min-w-4xl p-0 max-h-[97vh] overflow-hidden"
+        className="max-w-4xl min-w-4xl p-0 max-h-[97vh] overflow-hidden flex flex-col"
         onOpenAutoFocus={(e) => {
           if (activeTab === "ordonnance") {
             e.preventDefault();
@@ -823,7 +823,7 @@ export default function PrescriptionModal({
         }}
       >
         {title && (
-          <div className="px-6 pt-4 pb-3 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-[var(--color-50)] to-white">
+          <div className="px-6 pt-4 pb-3 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-[var(--color-50)] to-white shrink-0">
             <h2 className="text-xl font-bold text-[var(--color-700)] flex items-center gap-2">
               <FileText className="w-5 h-5 text-[var(--color-600)]" />
               {title}
@@ -831,7 +831,7 @@ export default function PrescriptionModal({
           </div>
         )}
         <motion.div
-          className="p-4 "
+          className="p-4 overflow-y-auto flex-1 min-h-0"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3 }}
@@ -1009,7 +1009,7 @@ export default function PrescriptionModal({
                           <SelectTrigger className="w-full border-[var(--color-300)] focus:ring-2 focus:ring-[var(--color-400)]">
                             <SelectValue placeholder="Choisir" />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="max-h-60 overflow-y-auto">
                             {ordTypes.map((t) => (
                               <SelectItem key={t.id} value={t.id}>
                                 {t.nom}
@@ -1492,7 +1492,7 @@ export default function PrescriptionModal({
                           <SelectTrigger className="w-full border-[var(--color-300)] focus:ring-2 focus:ring-[var(--color-400)]">
                             <SelectValue placeholder="Choisir le type" />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="max-h-60 overflow-y-auto">
                             {bilanTypes.map((t) => (
                               <SelectItem key={t.id} value={t.id}>
                                 {t.nom}
@@ -1669,7 +1669,7 @@ export default function PrescriptionModal({
                           <SelectTrigger className="w-full sm:w-1/2 border-[var(--color-300)] focus:ring-2 focus:ring-[var(--color-400)] mt-1">
                             <SelectValue placeholder="Choisir un modèle..." />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="max-h-60 overflow-y-auto">
                             {justifTypes.map((t) => (
                               <SelectItem key={t.id} value={t.id}>
                                 {t.nom}
