@@ -19,7 +19,9 @@
   },
   "build": {
     "appId": "com.mossaabsdj.dr-amel-pediatre",
-    "productName": "Dr_Pediatre",
+        "executableName": "Cabinet Pediatrique",
+
+    "productName": "Cabinet Pediatrique",
     "files": [
       ".next/**",
       "main.js",
