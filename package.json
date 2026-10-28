@@ -19,8 +19,7 @@
   },
   "build": {
     "appId": "com.mossaabsdj.dr-amel-pediatre",
-        "executableName": "Cabinet Pediatrique",
-
+    "executableName": "Cabinet Pediatrique",
     "productName": "Cabinet Pediatrique",
     "files": [
       ".next/**",
@@ -38,6 +37,7 @@
       "server.js",
       "backup.js",
       "restore.js",
+      "backup-crypto.js",
       "node_modules/**",
       "app/generated/prisma/**",
       "package.json"
@@ -50,6 +50,10 @@
       {
         "from": "param.json",
         "to": "param.json"
+      },
+      {
+        "from": ".env",
+        "to": ".env"
       }
     ],
     "asarUnpack": [

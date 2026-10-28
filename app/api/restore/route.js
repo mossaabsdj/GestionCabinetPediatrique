@@ -1,17 +1,131 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { decryptBackup } from "@/lib/backup-crypto";
 
 export const dynamic = "force-dynamic";
 
+const ALL_MODELS = [
+  "Cabinet",
+  "Patient",
+  "Consultation",
+  "RendezVous",
+  "Radio",
+  "BilanFile",
+  "Ordonnance",
+  "OrdonnanceItem",
+  "Medicament",
+  "Bilan",
+  "BilanRecip",
+  "BilanItem",
+  "BilanType",
+  "BilanTypeItem",
+  "RecetteType",
+  "RecetteTypeItem",
+  "Paiement",
+  "Vaccine",
+  "Vaccination",
+  "Justification",
+  "JustificationType",
+  "CourbeInfo",
+];
+
+/**
+ * Synchronize auto-increment sequences with MAX(id) for PostgreSQL and SQLite.
+ * Ensures subsequent normal create operations do not throw "Unique constraint failed on the fields: (id)".
+ */
+async function syncAutoIncrementSequences(dbClient) {
+  let isPostgres = false;
+  let isSqlite = false;
+
+  try {
+    const versionRes = await dbClient.$queryRawUnsafe("SELECT version();");
+    if (
+      Array.isArray(versionRes) &&
+      versionRes[0]?.version?.toLowerCase().includes("postgresql")
+    ) {
+      isPostgres = true;
+    }
+  } catch {
+    try {
+      const sqliteVer = await dbClient.$queryRawUnsafe("SELECT sqlite_version();");
+      if (Array.isArray(sqliteVer) && sqliteVer.length > 0) {
+        isSqlite = true;
+      }
+    } catch {
+      // Unknown provider fallback
+    }
+  }
+
+  if (isPostgres) {
+    console.log("[Restore] Synchronizing PostgreSQL auto-increment sequences...");
+    for (const table of ALL_MODELS) {
+      try {
+        const seqResult = await dbClient.$queryRawUnsafe(
+          `SELECT pg_get_serial_sequence('"${table}"', 'id') AS seq;`
+        );
+        const seqName = seqResult[0]?.seq;
+        if (seqName) {
+          const maxResult = await dbClient.$queryRawUnsafe(
+            `SELECT COALESCE(MAX("id"), 0) AS max_id FROM "${table}";`
+          );
+          const maxId = Number(maxResult[0]?.max_id || 0);
+          if (maxId > 0) {
+            await dbClient.$executeRawUnsafe(
+              `SELECT setval('${seqName}', ${maxId}, true);`
+            );
+            console.log(`[Restore] Synced ${table} sequence (${seqName}) to maxId ${maxId}`);
+          } else {
+            await dbClient.$executeRawUnsafe(
+              `SELECT setval('${seqName}', 1, false);`
+            );
+            console.log(`[Restore] Reset ${table} sequence (${seqName}) to 1`);
+          }
+        }
+      } catch (err) {
+        // Table might not exist or might not have auto-increment id, ignore
+      }
+    }
+    console.log("[Restore] All PostgreSQL sequences synchronized successfully.");
+  } else if (isSqlite) {
+    console.log("[Restore] Synchronizing SQLite sequence table...");
+    try {
+      const sqliteSeq = await dbClient.$queryRawUnsafe(
+        `SELECT name FROM sqlite_master WHERE type='table' AND name='sqlite_sequence';`
+      );
+      if (sqliteSeq && sqliteSeq.length > 0) {
+        for (const table of ALL_MODELS) {
+          try {
+            const maxResult = await dbClient.$queryRawUnsafe(
+              `SELECT COALESCE(MAX("id"), 0) AS max_id FROM "${table}";`
+            );
+            const maxId = Number(maxResult[0]?.max_id || 0);
+            if (maxId > 0) {
+              await dbClient.$executeRawUnsafe(
+                `INSERT OR REPLACE INTO sqlite_sequence (name, seq) VALUES ('${table}', ${maxId});`
+              );
+            }
+          } catch (err) {
+            // Table might not have auto-increment id, ignore
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("[Restore] SQLite sequence sync check skipped:", err.message);
+    }
+  }
+}
+
 export async function POST(req) {
   try {
-    let parsedData = null;
+    let rawPayload = null;
+    let password = null;
 
     const contentType = req.headers.get("content-type") || "";
 
     if (contentType.includes("multipart/form-data")) {
       const formData = await req.formData();
       const file = formData.get("file");
+      password = formData.get("password");
 
       if (!file) {
         return NextResponse.json(
@@ -22,25 +136,53 @@ export async function POST(req) {
 
       const textContent = await file.text();
       try {
-        parsedData = JSON.parse(textContent);
+        rawPayload = JSON.parse(textContent);
       } catch {
         return NextResponse.json(
-          { error: "Le fichier sélectionné n'est pas un JSON valide." },
+          { error: "Le fichier sélectionné n'est pas un JSON valide ou est corrompu." },
           { status: 400 },
         );
       }
     } else {
-      parsedData = await req.json();
+      const body = await req.json();
+      if (body && body.envelope) {
+        rawPayload = body.envelope;
+        password = body.password;
+      } else {
+        rawPayload = body;
+        password = body?.password;
+      }
     }
 
-    if (!parsedData) {
+    if (!rawPayload) {
       return NextResponse.json(
         { error: "Données de sauvegarde invalides ou vides." },
         { status: 400 },
       );
     }
 
+    let parsedData = rawPayload;
+
+    // If payload is encrypted with CABINET_SECURE_BACKUP format, decrypt and validate
+    if (rawPayload.format === "CABINET_SECURE_BACKUP") {
+      try {
+        parsedData = decryptBackup(rawPayload, password, "pediatre");
+      } catch (decryptErr) {
+        return NextResponse.json(
+          { error: decryptErr.message || "Échec du déchiffrement de la sauvegarde." },
+          { status: 400 },
+        );
+      }
+    }
+
     const data = parsedData.data || parsedData;
+
+    if (!data || typeof data !== "object") {
+      return NextResponse.json(
+        { error: "Structure de données de sauvegarde invalide." },
+        { status: 400 },
+      );
+    }
 
     // Restore sequentially in proper FK order inside a transaction
     await prisma.$transaction(
@@ -522,11 +664,44 @@ export async function POST(req) {
             });
           }
         }
+
+        if (Array.isArray(data.courbeInfos)) {
+          for (const ci of data.courbeInfos) {
+            await tx.courbeInfo.upsert({
+              where: { id: ci.id || 0 },
+              update: {
+                patientId: ci.patientId,
+                consultationId: ci.consultationId ?? null,
+                age: ci.age ?? null,
+                poids: ci.poids ? parseFloat(ci.poids) : null,
+                taille: ci.taille ? parseFloat(ci.taille) : null,
+                perimetreCranien: ci.perimetreCranien ? parseFloat(ci.perimetreCranien) : null,
+                createdAt: new Date(ci.createdAt || Date.now()),
+              },
+              create: {
+                ...(ci.id ? { id: ci.id } : {}),
+                patientId: ci.patientId,
+                consultationId: ci.consultationId ?? null,
+                age: ci.age ?? null,
+                poids: ci.poids ? parseFloat(ci.poids) : null,
+                taille: ci.taille ? parseFloat(ci.taille) : null,
+                perimetreCranien: ci.perimetreCranien ? parseFloat(ci.perimetreCranien) : null,
+                createdAt: new Date(ci.createdAt || Date.now()),
+              },
+            });
+          }
+        }
+
+        // Synchronize all auto-increment sequences with MAX(id) inside transaction
+        await syncAutoIncrementSequences(tx);
       },
       {
         timeout: 60000, // 60 seconds timeout for full db restoration
       },
     );
+
+    // Double-check sequence synchronization on the main client
+    await syncAutoIncrementSequences(prisma);
 
     return NextResponse.json({
       success: true,
