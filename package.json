@@ -13,7 +13,7 @@
     "start": "next start",
     "electron:dev": "concurrently \"npm run dev\" \"npm run electron\"",
     "electron": "electron main.js",
-    "electron-build": "electron-builder --dir",
+"electron-build": "electron-builder --win nsis",
     "lint": "next lint",
     "test": "node test.js"
   },

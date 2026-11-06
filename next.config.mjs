@@ -2,7 +2,6 @@
 
 const nextConfig = {
   reactStrictMode: true,
-  outputFileTracing: false,
 
   async rewrites() {
     return [
