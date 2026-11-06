@@ -37,6 +37,10 @@ import {
   ExternalLink,
   ArrowRight,
   Play,
+  TrendingUp,
+  Settings,
+  Maximize2,
+  ZoomIn,
 } from "lucide-react";
 import {
   Card,
@@ -60,52 +64,151 @@ import {
 } from "@/components/ui/dialog";
 import param from "@/param.json";
 
-// === Carousel Slides Data ===
+// === Carousel Slides Data (Captures d'écran réelles du Cabinet Pédiatrique) ===
 const CAROUSEL_SLIDES = [
   {
     id: 1,
-    title: "Tableau de Bord Médical Intelligent",
-    subtitle: "Statistiques en temps réel & Activité journalière",
-    desc: "Suivi instantané des flux de patients, ordonnances, bilans et moyennes de consultations horaires avec graphiques dynamiques.",
-    badge: "Analytics & Vue Globale",
+    title: "Tableau de Bord & Analytique Médicale",
+    subtitle: "Statistiques en temps réel & Flux d'activité du cabinet",
+    desc: "Suivi instantané de l'activité pédiatrique : volume mensuel et hebdomadaire des consultations, répartition horaire moyenne, ratios de fréquentation et indicateurs financiers du cabinet.",
+    badge: "Dashboard & Stats",
     icon: Activity,
-    color: "from-blue-600 to-cyan-500",
+    color: "from-blue-600 to-indigo-600",
+    image: "/Apropos/stats.png",
+    link: "/Accueill",
+    linkLabel: "Accéder au Tableau de Bord",
   },
   {
     id: 2,
-    title: "Gestion Complète des Consultations",
-    subtitle: "Dossier patient pédiatrique & Constantes vitales",
-    desc: "Enregistrement rapide des paramètres vitaux (taille, poids, saturation O2, glycémie, périmètre crânien) et historique médical.",
-    badge: "Consultation Pro",
+    title: "Registre des Consultations Pédiatriques",
+    subtitle: "Historique médical & Recherche multicritère",
+    desc: "Centralisation des dossiers de consultation : recherche instantanée par patient, filtrage par date, aperçu rapide des diagnostics, constantes enregistrées et état de la salle d'attente.",
+    badge: "Consultations",
     icon: Stethoscope,
-    color: "from-emerald-600 to-teal-500",
+    color: "from-emerald-600 to-teal-600",
+    image: "/Apropos/consultations.png",
+    link: "/Consulter",
+    linkLabel: "Gérer les Consultations",
   },
   {
     id: 3,
-    title: "Prescription & Ordonnances Numériques",
-    subtitle: "Génération automatique & Impression A4 standardisée",
-    desc: "Création rapide d'ordonnances avec posologie, durée, fréquences et recettes pré-enregistrées, imprimables en 1 clic.",
-    badge: "Prescription Rapide",
-    icon: Pill,
-    color: "from-purple-600 to-indigo-500",
+    title: "Dossier Clinique & Détails de Consultation",
+    subtitle: "Synthèse clinique complète en fenêtre modale",
+    desc: "Aperçu approfondi de chaque visite médicale : examen clinique, motif, constantes biométriques, ordonnances délivrées, bilans biologiques prescrits et observations médicales.",
+    badge: "Détails Consultation",
+    icon: FileText,
+    color: "from-teal-600 to-cyan-600",
+    image: "/Apropos/consultationsmodal.png",
+    link: "/Consulter",
+    linkLabel: "Consulter un Dossier",
   },
   {
     id: 4,
-    title: "Laboratoire, Bilans & Radiographies",
-    subtitle: "Visionneuse et archivage sécurisé des examens",
-    desc: "Centralisation des résultats biologiques, demandes d'examens médicaux et radiologies numériques téléchargeables.",
-    badge: "Imagerie & Examens",
-    icon: TestTube,
-    color: "from-amber-600 to-orange-500",
+    title: "Nouvelle Consultation & Constantes Vitales",
+    subtitle: "Saisie guidée et rapide adaptée à la pédiatrie",
+    desc: "Interface optimisée pour enregistrer le motif de consultation, antécédents, constantes vitales (poids, taille, périmètre crânien, saturation O2, température) et diagnostic médical.",
+    badge: "Nouvelle Consultation",
+    icon: Heart,
+    color: "from-rose-600 to-pink-600",
+    image: "/Apropos/newconsultation.png",
+    link: "/Consulter",
+    linkLabel: "Nouvelle Consultation",
   },
   {
     id: 5,
-    title: "Calendrier Vaccinal & Rappels Pédiatriques",
-    subtitle: "Suivi rigoureux du carnet de santé infantile",
-    desc: "Enregistrement des doses vaccinales administrées, dates de rappel et historique vaccinal complet par enfant.",
-    badge: "Vaccination & Prévention",
-    icon: Syringe,
-    color: "from-rose-600 to-pink-500",
+    title: "Courbes de Croissance Pédiatrique (OMS)",
+    subtitle: "Suivi biométrique global & Couloirs de percentiles",
+    desc: "Génération automatique des courbes de développement de l'enfant (Poids, Taille, Périmètre Crânien) selon les référentiels OMS afin d'évaluer la croissance et dépister toute cassure.",
+    badge: "Courbes OMS",
+    icon: Activity,
+    color: "from-violet-600 to-purple-600",
+    image: "/Apropos/courbe.png",
+    link: "/Consulter",
+    linkLabel: "Consulter les Courbes",
+  },
+  {
+    id: 6,
+    title: "Courbe d'Évolution Pondérale (Poids / Âge)",
+    subtitle: "Surveillance de la prise de poids infantile",
+    desc: "Tracé précis de la courbe de poids selon les normes pédiatriques de l'OMS (médiane et écarts-types) pour un contrôle nutritionnel et néonatal rigoureux.",
+    badge: "Courbe Poids",
+    icon: Activity,
+    color: "from-cyan-600 to-blue-600",
+    image: "/Apropos/courbe_poids.png",
+    link: "/Consulter",
+    linkLabel: "Voir Courbe de Poids",
+  },
+  {
+    id: 7,
+    title: "Courbe de Croissance Staturale (Taille / Âge)",
+    subtitle: "Évaluation de la vitesse de croissance en taille",
+    desc: "Visualisation de l'évolution de la taille de l'enfant au cours des visites pédiatriques, permettant un repérage immédiat des retards staturaux et un suivi thérapeutique fiable.",
+    badge: "Courbe Taille",
+    icon: Activity,
+    color: "from-amber-600 to-orange-600",
+    image: "/Apropos/courbe_taile.png",
+    link: "/Consulter",
+    linkLabel: "Voir Courbe de Taille",
+  },
+  {
+    id: 8,
+    title: "Courbe du Périmètre Crânien (PC / Âge)",
+    subtitle: "Surveillance neurodéveloppementale du nourrisson",
+    desc: "Suivi continu de la circonférence crânienne indispensable chez le jeune enfant pour contrôler le développement cérébral et détecter précocement les anomalies crâniennes.",
+    badge: "Périmètre Crânien",
+    icon: Activity,
+    color: "from-emerald-600 to-green-600",
+    image: "/Apropos/courbe_pc.png",
+    link: "/Consulter",
+    linkLabel: "Voir Courbe du PC",
+  },
+  {
+    id: 9,
+    title: "Prescriptions, Bilans & Justificatifs",
+    subtitle: "Édition médicale rapide & Impression A4 officielle",
+    desc: "Module unifié pour prescrire des médicaments avec posologie et durée, ordonner des examens biologiques ou radiologiques, et rédiger des certificats de dispense ou justificatifs.",
+    badge: "Ordonnances & Bilans",
+    icon: Pill,
+    color: "from-indigo-600 to-blue-600",
+    image: "/Apropos/newordanance&bilan&justification.png",
+    link: "/Consulter",
+    linkLabel: "Créer une Prescription",
+  },
+  {
+    id: 10,
+    title: "Modèles Prédéfinis & Protocoles Types",
+    subtitle: "Gain de temps lors des consultations de routine",
+    desc: "Bibliothèque personnalisable d'ordonnances types (angines, bronchiolites, otites) et de bilans fréquents. Insérez un protocole pédiatrique complet en un seul clic.",
+    badge: "Modèles Types",
+    icon: Layers,
+    color: "from-pink-600 to-rose-600",
+    image: "/Apropos/predefinetypeforodanance&bilan&justification.png",
+    link: "/Predifined",
+    linkLabel: "Configurer les Modèles",
+  },
+  {
+    id: 11,
+    title: "Paramètres du Cabinet & En-têtes Bilingues",
+    subtitle: "Personnalisation officielle des impressions (FR / AR)",
+    desc: "Configuration sur-mesure de l'en-tête médical : nom du praticien, spécialités en français et arabe, coordonnées, logo du cabinet et marges d'impression pour ordonnances.",
+    badge: "Paramètres & En-tête",
+    icon: Settings,
+    color: "from-orange-600 to-amber-600",
+    image: "/Apropos/ordananceheaderparams.png",
+    link: "/Params",
+    linkLabel: "Ouvrir les Paramètres",
+  },
+  {
+    id: 12,
+    title: "Écran de Démarrage & Initialisation Sécurisée",
+    subtitle: "Expérience fluide et chargement des configurations",
+    desc: "Écran de démarrage moderne assurant la connexion transparente à la base de données, l'initialisation des thèmes du cabinet et le chargement ultra-rapide de l'application.",
+    badge: "Accueil & Lancement",
+    icon: Sparkles,
+    color: "from-purple-600 to-violet-600",
+    image: "/Apropos/loadingscreen.png",
+    link: "/Accueill",
+    linkLabel: "Lancer l'Application",
   },
 ];
 
@@ -202,6 +305,8 @@ export default function AproposPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const [previewImage, setPreviewImage] = useState(null);
   const [copiedField, setCopiedField] = useState(null);
   const [reviews, setReviews] = useState(INITIAL_REVIEWS);
   const [filterRating, setFilterRating] = useState(0);
@@ -224,13 +329,14 @@ export default function AproposPage() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Auto slide carousel
+  // Auto slide carousel with pause-on-hover
   useEffect(() => {
+    if (isPaused) return;
     const interval = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % CAROUSEL_SLIDES.length);
-    }, 5000);
+    }, 6000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isPaused]);
 
   const handleCopy = (text, fieldName) => {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
@@ -392,8 +498,11 @@ export default function AproposPage() {
               </p>
             </div>
 
-            {/* Carousel Navigation Buttons */}
+            {/* Carousel Navigation Buttons & Counter */}
             <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-gray-500 mr-1 hidden sm:inline">
+                {currentSlide + 1} / {CAROUSEL_SLIDES.length}
+              </span>
               <Button
                 variant="outline"
                 size="icon"
@@ -402,7 +511,8 @@ export default function AproposPage() {
                     prev === 0 ? CAROUSEL_SLIDES.length - 1 : prev - 1,
                   )
                 }
-                className="h-9 w-9 rounded-full border-gray-300 hover:bg-[var(--color-100)] text-gray-700"
+                className="h-9 w-9 rounded-full border-gray-300 hover:bg-[var(--color-100)] text-gray-700 cursor-pointer"
+                title="Diapositive précédente"
               >
                 <ChevronLeft className="w-4 h-4" />
               </Button>
@@ -412,7 +522,8 @@ export default function AproposPage() {
                 onClick={() =>
                   setCurrentSlide((prev) => (prev + 1) % CAROUSEL_SLIDES.length)
                 }
-                className="h-9 w-9 rounded-full border-gray-300 hover:bg-[var(--color-100)] text-gray-700"
+                className="h-9 w-9 rounded-full border-gray-300 hover:bg-[var(--color-100)] text-gray-700 cursor-pointer"
+                title="Diapositive suivante"
               >
                 <ChevronRight className="w-4 h-4" />
               </Button>
@@ -428,143 +539,217 @@ export default function AproposPage() {
               </div>
             </Card>
           ) : (
-            <div className="relative overflow-hidden rounded-2xl border border-[var(--color-200)] bg-white shadow-xl">
-              <AnimatePresence mode="wait">
-                {CAROUSEL_SLIDES.map((slide, index) => {
-                  if (index !== currentSlide) return null;
-                  const Icon = slide.icon;
+            <div className="space-y-4">
+              {/* Main Carousel Card */}
+              <div
+                onMouseEnter={() => setIsPaused(true)}
+                onMouseLeave={() => setIsPaused(false)}
+                className="relative overflow-hidden rounded-2xl border border-[var(--color-200)] bg-white shadow-xl"
+              >
+                <AnimatePresence mode="wait">
+                  {CAROUSEL_SLIDES.map((slide, index) => {
+                    if (index !== currentSlide) return null;
+                    const Icon = slide.icon;
 
-                  return (
-                    <motion.div
-                      key={slide.id}
-                      initial={{ opacity: 0, x: 50 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -50 }}
-                      transition={{ duration: 0.45, ease: "easeInOut" }}
-                      className="grid grid-cols-1 lg:grid-cols-12 min-h-[380px]"
-                    >
-                      {/* Left: Info details */}
-                      <div className="lg:col-span-6 p-8 sm:p-10 flex flex-col justify-between space-y-6">
-                        <div className="space-y-4">
-                          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-[var(--color-100)] text-[var(--color-700)]">
-                            <Icon className="w-3.5 h-3.5" />
-                            {slide.badge}
+                    return (
+                      <motion.div
+                        key={slide.id}
+                        initial={{ opacity: 0, x: 40 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -40 }}
+                        transition={{ duration: 0.4, ease: "easeInOut" }}
+                        className="grid grid-cols-1 lg:grid-cols-12 min-h-[420px]"
+                      >
+                        {/* Left: Info details */}
+                        <div className="lg:col-span-5 p-6 sm:p-8 lg:p-10 flex flex-col justify-between space-y-6 bg-white">
+                          <div className="space-y-4">
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-[var(--color-100)] text-[var(--color-700)]">
+                              <Icon className="w-3.5 h-3.5" />
+                              {slide.badge}
+                            </div>
+
+                            <h3 className="text-2xl sm:text-3xl font-extrabold text-gray-900 leading-tight">
+                              {slide.title}
+                            </h3>
+
+                            <h4 className="text-sm sm:text-base font-semibold text-[var(--color-600)]">
+                              {slide.subtitle}
+                            </h4>
+
+                            <p className="text-gray-600 text-sm leading-relaxed">
+                              {slide.desc}
+                            </p>
                           </div>
 
-                          <h3 className="text-2xl sm:text-3xl font-extrabold text-gray-900">
-                            {slide.title}
-                          </h3>
+                          {/* Slide Indicators & Actions */}
+                          <div className="space-y-4 pt-4 border-t border-gray-100">
+                            <div className="flex items-center justify-between">
+                              {/* Dots navigation */}
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {CAROUSEL_SLIDES.map((_, i) => (
+                                  <button
+                                    key={i}
+                                    onClick={() => setCurrentSlide(i)}
+                                    className={`h-2.5 rounded-full transition-all duration-300 cursor-pointer ${
+                                      i === currentSlide
+                                        ? "w-6 bg-[var(--color-600)]"
+                                        : "w-2 bg-gray-200 hover:bg-gray-300"
+                                    }`}
+                                    aria-label={`Aller au slide ${i + 1}`}
+                                  />
+                                ))}
+                              </div>
 
-                          <h4 className="text-base font-semibold text-[var(--color-600)]">
-                            {slide.subtitle}
-                          </h4>
+                              <span className="text-xs font-medium text-gray-400">
+                                {currentSlide + 1} / {CAROUSEL_SLIDES.length}
+                              </span>
+                            </div>
 
-                          <p className="text-gray-600 text-sm sm:text-base leading-relaxed">
-                            {slide.desc}
-                          </p>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                onClick={() => router.push(slide.link || "/Accueill")}
+                                className="flex-1 bg-[var(--color-600)] hover:bg-[var(--color-700)] text-white text-xs sm:text-sm font-semibold rounded-xl h-10 shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+                              >
+                                <Play className="w-3.5 h-3.5 fill-white" />
+                                <span>{slide.linkLabel || "Tester ce module"}</span>
+                              </Button>
+                              <Button
+                                variant="outline"
+                                onClick={() => setPreviewImage(slide)}
+                                className="rounded-xl h-10 px-3 text-xs text-gray-700 hover:bg-gray-50 border-gray-200 flex items-center gap-1.5 cursor-pointer"
+                                title="Agrandir la capture d'écran"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">Agrandir</span>
+                              </Button>
+                            </div>
+                          </div>
                         </div>
 
-                        {/* Slide Indicators & Quick Test Link */}
-                        <div className="flex items-center justify-between pt-4">
-                          <div className="flex items-center gap-2">
-                            {CAROUSEL_SLIDES.map((_, i) => (
-                              <button
-                                key={i}
-                                onClick={() => setCurrentSlide(i)}
-                                className={`h-2.5 rounded-full transition-all duration-300 ${
-                                  i === currentSlide
-                                    ? "w-8 bg-[var(--color-600)]"
-                                    : "w-2.5 bg-gray-200 hover:bg-gray-300"
-                                }`}
-                                aria-label={`Aller au slide ${i + 1}`}
-                              />
-                            ))}
-                          </div>
-
+                        {/* Mobile Prev/Next bar */}
+                        <div className="flex items-center justify-center pb-2 md:hidden">
                           <Button
-                            onClick={() => router.push("/Accueill")}
-                            variant="ghost"
-                            className="text-xs font-bold text-[var(--color-600)] hover:text-[var(--color-700)] hover:bg-[var(--color-50)] gap-1 p-2"
+                            variant="outline"
+                            size="icon"
+                            onClick={() =>
+                              setCurrentSlide((prev) =>
+                                prev === 0 ? CAROUSEL_SLIDES.length - 1 : prev - 1,
+                              )
+                            }
+                            className="h-9 w-9 mx-2 rounded-full border-gray-300 hover:bg-[var(--color-100)] text-gray-700 cursor-pointer"
+                            title="Diapositive précédente"
                           >
-                            <span>Tester ce module</span>
-                            <ArrowRight className="w-3.5 h-3.5" />
+                            <ChevronLeft className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() =>
+                              setCurrentSlide((prev) => (prev + 1) % CAROUSEL_SLIDES.length)
+                            }
+                            className="h-9 w-9 rounded-full border-gray-300 hover:bg-[var(--color-100)] text-gray-700 cursor-pointer"
+                            title="Diapositive suivante"
+                          >
+                            <ChevronRight className="w-4 h-4" />
                           </Button>
                         </div>
-                      </div>
 
-                      {/* Right: Visual Mockup Showcase */}
-                      <div
-                        className={`lg:col-span-6 bg-gradient-to-br ${slide.color} p-8 flex items-center justify-center relative overflow-hidden`}
-                      >
-                        {/* Background decorative circles */}
-                        <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/10 blur-xl" />
-                        <div className="absolute -bottom-10 -left-10 w-48 h-48 rounded-full bg-black/10 blur-xl" />
+                        {/* Right: Real Application Screenshot Showcase */}
+                        <div
+                          className={`lg:col-span-7 bg-gradient-to-br ${slide.color} p-4 sm:p-6 lg:p-8 flex items-center justify-center relative overflow-hidden`}
+                        >
+                          {/* Background decorative elements */}
+                          <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/10 blur-xl pointer-events-none" />
+                          <div className="absolute -bottom-10 -left-10 w-48 h-48 rounded-full bg-black/10 blur-xl pointer-events-none" />
 
-                        {/* Interactive Mockup Graphic */}
-                        <div className="relative z-10 w-full max-w-md bg-white/95 backdrop-blur-md rounded-xl p-5 shadow-2xl border border-white/40 space-y-4 text-gray-800">
-                          <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-                            <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full bg-rose-500" />
-                              <div className="w-3 h-3 rounded-full bg-amber-500" />
-                              <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                            </div>
-                            <span className="text-xs font-semibold text-gray-500">
-                              Cabinet Pédiatrique v4.0
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-3">
-                            <div className="p-3 rounded-xl bg-[var(--color-100)] text-[var(--color-600)]">
-                              <Icon className="w-6 h-6" />
-                            </div>
-                            <div>
-                              <div className="text-sm font-bold text-gray-900">
-                                {slide.title}
+                          {/* App Window Frame Mockup */}
+                          <div className="relative z-10 w-full max-w-2xl bg-gray-900 rounded-xl shadow-2xl border border-white/25 overflow-hidden group flex flex-col">
+                            {/* Window Header Bar */}
+                            <div className="flex items-center justify-between px-3.5 py-2.5 bg-gray-900 text-white text-xs border-b border-gray-800 select-none">
+                              <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1.5">
+                                  <div className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                                  <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                                </div>
+                                <span className="text-[11px] font-medium text-gray-300 ml-2 hidden sm:inline">
+                                  Cabinet Pédiatrique • {slide.badge}
+                                </span>
                               </div>
-                              <div className="text-xs text-gray-500">
-                                Statut : Opérationnel & Sécurisé
+
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] text-gray-400 font-mono hidden sm:inline">
+                                  public{slide.image}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewImage(slide)}
+                                  className="p-1 rounded-md bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+                                  title="Agrandir la capture d'écran"
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                </button>
                               </div>
                             </div>
-                          </div>
 
-                          <div className="grid grid-cols-2 gap-2 text-xs">
-                            <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-100">
-                              <span className="text-gray-500 block">
-                                Fréquence d'utilisation
-                              </span>
-                              <span className="font-bold text-gray-900">
-                                Continue (24/7)
-                              </span>
-                            </div>
-                            <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-100">
-                              <span className="text-gray-500 block">
-                                Base de données
-                              </span>
-                              <span className="font-bold text-emerald-600">
-                                Neon Postgres
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="p-3 rounded-lg bg-[var(--color-50)] border border-[var(--color-200)] text-xs text-[var(--color-800)] font-medium flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                              <span>Accessible en Web & Electron</span>
-                            </div>
-                            <Button
-                              onClick={() => router.push("/Accueill")}
-                              size="sm"
-                              className="h-7 text-xs bg-[var(--color-600)] hover:bg-[var(--color-700)] text-white rounded-lg px-2.5"
+                            {/* Screenshot Image Container */}
+                            <div
+                              onClick={() => setPreviewImage(slide)}
+                              className="relative aspect-[16/10] w-full bg-gray-950 overflow-hidden cursor-pointer"
                             >
-                              Ouvrir
-                            </Button>
+                              <img
+                                src={slide.image}
+                                alt={slide.title}
+                                className="w-full h-full object-contain object-top transition-transform duration-500 group-hover:scale-[1.02]"
+                              />
+
+                              {/* Hover Action Badge */}
+                              <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center backdrop-blur-[1px]">
+                                <span className="px-3.5 py-2 rounded-xl bg-gray-900/90 text-white text-xs font-semibold shadow-xl border border-white/20 flex items-center gap-2">
+                                  <ExternalLink className="w-4 h-4" />
+                                  Cliquer pour voir en plein écran
+                                </span>
+                              </div>
+                            </div>
                           </div>
                         </div>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              </div>
+
+              {/* Thumbnails Grid (All 12 Screenshots) */}
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-2 sm:gap-2.5 pt-2">
+                {CAROUSEL_SLIDES.map((slide, idx) => (
+                  <button
+                    key={slide.id}
+                    type="button"
+                    onClick={() => setCurrentSlide(idx)}
+                    className={`group relative rounded-xl overflow-hidden border-2 transition-all duration-200 text-left bg-white cursor-pointer ${
+                      idx === currentSlide
+                        ? "border-[var(--color-600)] ring-2 ring-[var(--color-300)] shadow-md -translate-y-1"
+                        : "border-gray-200 hover:border-[var(--color-300)] opacity-70 hover:opacity-100"
+                    }`}
+                  >
+                    <div className="aspect-[16/10] w-full bg-gray-900 relative overflow-hidden">
+                      <img
+                        src={slide.image}
+                        alt={slide.title}
+                        className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
+                      />
+                      {idx === currentSlide && (
+                        <div className="absolute inset-0 bg-[var(--color-600)]/20 border-b-2 border-[var(--color-600)]" />
+                      )}
+                    </div>
+                    <div className="p-1 bg-white text-center">
+                      <div className="truncate text-[10px] font-semibold text-gray-800">
+                        {slide.badge}
                       </div>
-                    </motion.div>
-                  );
-                })}
-              </AnimatePresence>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </motion.section>
@@ -1080,6 +1265,69 @@ export default function AproposPage() {
                 </Button>
               </DialogFooter>
             </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* ======================================================== */}
+        {/* LIGHTBOX MODAL FOR REAL APPLICATION SCREENSHOTS */}
+        {/* ======================================================== */}
+        <Dialog
+          open={!!previewImage}
+          onOpenChange={(open) => !open && setPreviewImage(null)}
+        >
+          <DialogContent className="max-w-5xl w-[95vw] max-h-[92vh] p-4 sm:p-6 overflow-hidden flex flex-col bg-white/95 backdrop-blur-xl border border-gray-200 shadow-2xl">
+            <DialogHeader className="pb-3 border-b border-gray-100 flex-shrink-0">
+              <div className="space-y-1 pr-6">
+                <DialogTitle className="text-lg sm:text-xl font-bold flex items-center gap-2 text-gray-900">
+                  <Sparkles className="w-5 h-5 text-[var(--color-600)]" />
+                  {previewImage?.title}
+                </DialogTitle>
+                <DialogDescription className="text-xs sm:text-sm text-gray-600">
+                  {previewImage?.subtitle} — {previewImage?.desc}
+                </DialogDescription>
+              </div>
+            </DialogHeader>
+
+            <div className="flex-1 overflow-auto rounded-xl border border-gray-200 mt-3 bg-slate-950 flex items-center justify-center p-1 sm:p-2">
+              {previewImage && (
+                <img
+                  src={previewImage.image}
+                  alt={previewImage.title}
+                  className="w-full h-auto max-h-[72vh] object-contain rounded-lg shadow-lg"
+                />
+              )}
+            </div>
+
+            <DialogFooter className="pt-3 border-t border-gray-100 flex flex-row items-center justify-between sm:justify-between">
+              <div className="text-xs text-gray-500 flex items-center gap-2">
+                <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
+                Capture d'écran réelle 1080p
+              </div>
+              <div className="flex items-center gap-2">
+                {previewImage?.link && (
+                  <Button
+                    onClick={() => {
+                      const link = previewImage.link;
+                      setPreviewImage(null);
+                      router.push(link);
+                    }}
+                    size="sm"
+                    className="bg-[var(--color-600)] hover:bg-[var(--color-700)] text-white text-xs gap-1.5 cursor-pointer"
+                  >
+                    <span>{previewImage.linkLabel || "Ouvrir le module"}</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPreviewImage(null)}
+                  className="text-xs cursor-pointer"
+                >
+                  Fermer
+                </Button>
+              </div>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
