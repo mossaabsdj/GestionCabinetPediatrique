@@ -88,7 +88,7 @@ export default function PatientVisits({
   }, [query, dateFilter, visits]);
 
   // 🔄 Fetch consultations
-  const fetchConsultations = async () => {
+ const fetchConsultations = async () => {
     setLoading(true);
     try {
       const res = await fetch(`/api/Consulter?patientId=${patientId}`);
@@ -96,8 +96,10 @@ export default function PatientVisits({
       if (!res.ok) throw new Error(data.error || "Erreur de chargement");
       setVisits(data);
       setfiltredData(data);
+      return data;
     } catch (err) {
       console.error("❌ Erreur:", err);
+      return [];
     } finally {
       setLoading(false);
     }
@@ -299,11 +301,11 @@ export default function PatientVisits({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erreur de mise à jour");
 
-      await fetchConsultations();
+      const newdata = await fetchConsultations();
       setIsEditing(false);
 
       // Update the selected visit after save
-      const updatedVisit = filtredData[currentVisitIndex];
+      const updatedVisit = newdata[currentVisitIndex];
       await fetchPatientById(patientId);
 
       setSelectedVisit(updatedVisit);

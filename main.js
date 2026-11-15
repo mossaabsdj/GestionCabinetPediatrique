@@ -6,14 +6,60 @@ const { shell } = require("electron");
 const { Menu } = require("electron");
 const { backupDatabase } = require("./backup");
 const { restoreDatabase, inspectBackupFile } = require("./restore");
-let param = {};
+let prisma;
 try {
-  param = require("./param.json");
+  const { PrismaClient } = require("./app/generated/prisma");
+  prisma = new PrismaClient();
 } catch (e) {
-  try {
-    param = require(path.join(process.execPath, "..", "param.json"));
-  } catch (e2) {}
+  console.warn("[main.js] PrismaClient initialization note:", e.message);
 }
+
+const DEFAULT_CABINET = {
+  title: "Cabinet Dentaire",
+  doctorName: "Docteur",
+  doctorNameAr: "دكتور",
+  specialty: "Chirurgien Dentiste",
+  specialtyAr: "جراحة و طب الأسنان",
+  cabinetName: "Cabinet Dentaire",
+  cabinetNameAr: "عيادة طب الأسنان",
+  address: "Rue Frères KAFI logts 38, 1er étage",
+  addressAr: "شارع الإخوة كافي عقار 38 الطابق الأول",
+  city: "El-Harrouch SKIKDA",
+  cityAr: "(بزاز لعلاوي) الحروش - سكيكدة",
+  phones: "0652 76 89 72 / 0562 24 40 87",
+  logo: "/uploads/image.PNG",
+};
+
+let cachedCabinet = null;
+
+async function getCabinetData() {
+  if (prisma) {
+    try {
+      const dbCabinet = await prisma.cabinet.findFirst();
+      if (dbCabinet) {
+        cachedCabinet = dbCabinet;
+        return dbCabinet;
+      }
+    } catch (e) {
+      console.warn("[main.js] Prisma query cabinet error:", e.message);
+    }
+  }
+
+  // Fallback: try Next.js cabinet API if server is running
+  try {
+    const res = await fetch("http://localhost:3000/api/cabinet");
+    if (res.ok) {
+      const data = await res.json();
+      if (data) {
+        cachedCabinet = data;
+        return data;
+      }
+    }
+  } catch (e) {}
+
+  return cachedCabinet || DEFAULT_CABINET;
+}
+
 let mainWindow;
 let splashWindow;
 let serverProcess;
@@ -186,8 +232,8 @@ function createSplashScreen() {
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
               </svg>
             </div>
-            <h1>${param.title}</h1>
-            <div class="subtitle">Pédiatre</div>
+            <h1>${cachedCabinet?.title || cachedCabinet?.cabinetName || "Cabinet Dentaire"}</h1>
+            <div class="subtitle">${cachedCabinet?.specialty || "Chirurgien Dentiste"}</div>
             <div class="loader">
               <div class="loader-bar"></div>
             </div>
@@ -340,7 +386,12 @@ function createMenu() {
   Menu.setApplicationMenu(menu);
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // Pre-load cabinet data from database
+  try {
+    await getCabinetData();
+  } catch (e) {}
+
   // Show splash screen first
   createSplashScreen();
 
@@ -374,28 +425,27 @@ ipcMain.handle("get-app-path", () => {
   return path.dirname(path.dirname(app.getAppPath()));
 });
 
-function getElectronCabinet(customCab = {}) {
-  let currentParam = {};
+ipcMain.handle("get-cabinet", async () => {
+  return await getCabinetData();
+});
+
+async function getElectronCabinet(customCab = {}) {
+  let dbCab = {};
   try {
-    currentParam = require("./param.json");
+    dbCab = await getCabinetData();
   } catch (e) {
-    try {
-      currentParam = require(path.join(process.execPath, "..", "param.json"));
-    } catch (e2) {}
+    dbCab = cachedCabinet || DEFAULT_CABINET;
   }
 
-  const cab = { ...currentParam, ...customCab };
-  const doctorName = cab.doctorName || "Professeur";
-  const doctorNameAr = cab.doctorNameAr || "بروفيسور";
-  const specialty =
-    cab.specialty || "Médecin Spécialiste en Pédiatrie et Néonatologie";
-  const specialtyAr =
-    cab.specialtyAr || "طبيبة مختصة في طب الأطفال و حديثي الولادة";
-  const cabinetName = cab.cabinetName || "Cabinet Pédiatrique";
-  const cabinetNameAr = cab.cabinetNameAr || "عيادة طب الأطفال";
+  const cab = { ...DEFAULT_CABINET, ...dbCab, ...customCab };
+  const doctorName = cab.doctorName || "Docteur";
+  const doctorNameAr = cab.doctorNameAr || "دكتور";
+  const specialty = cab.specialty || "Chirurgien Dentiste";
+  const specialtyAr = cab.specialtyAr || "جراحة و طب الأسنان";
+  const cabinetName = cab.cabinetName || "Cabinet Dentaire";
+  const cabinetNameAr = cab.cabinetNameAr || "عيادة طب الأسنان";
   const address = cab.address || "Rue Frères KAFI logts 38, 1er étage";
-  const addressAr =
-    cab.addressAr || "شارع الإخوة كافي عقار 38 الطابق الأول";
+  const addressAr = cab.addressAr || "شارع الإخوة كافي عقار 38 الطابق الأول";
   const city = cab.city || "El-Harrouch SKIKDA";
   const cityAr = cab.cityAr || "(بزاز لعلاوي) الحروش - سكيكدة";
   const phones = cab.phones || "0652 76 89 72 / 0562 24 40 87";
@@ -408,10 +458,15 @@ function getElectronCabinet(customCab = {}) {
     !logo.startsWith("https://")
   ) {
     const cleanPath = logo.startsWith("/") ? logo.slice(1) : logo;
-    const basePath = app.isPackaged
-      ? path.join(process.resourcesPath, "app.asar.unpacked")
-      : path.resolve(__dirname, "..", "app");
-    const fullImagePath = path.join(basePath, "public", cleanPath);
+    const fs = require("fs");
+    const cwdPath = path.join(process.cwd(), "public", cleanPath);
+    let fullImagePath = cwdPath;
+    if (!fs.existsSync(cwdPath)) {
+      const basePath = app.isPackaged
+        ? path.join(path.dirname(process.execPath), "public", cleanPath)
+        : path.resolve(__dirname, "..", "app");
+      fullImagePath = path.join(basePath, "public", cleanPath);
+    }
     imageUrl = `file://${fullImagePath.replace(/\\/g, "/").replace(/ /g, "%20")}`;
   }
 
@@ -430,21 +485,19 @@ function getElectronCabinet(customCab = {}) {
     imageUrl,
   };
 }
+const fs = require("fs");
+const os = require("os");
+const {
+  buildOrdonnanceHtml,
+  buildBilanHtml,
+  buildJustificationHtml,
+} = require("./print-templates");
 
-ipcMain.on("printOrdonnance", (event, data) => {
-  const {
-    id,
-    nom,
-    prenom,
-    age,
-    consultationId,
-    ordonnanceId,
-    items = [],
-    cabinet = {},
-  } = data;
-
-  const cab = getElectronCabinet(cabinet);
-
+/**
+ * Opens a hidden-from-nobody print window, waits until the page has finished its
+ * automatic pagination (window.__printReady), then opens the system print dialog.
+ */
+function runElectronPrint(html, label) {
   const printWindow = new BrowserWindow({
     show: true,
     width: 1000,
@@ -459,828 +512,155 @@ ipcMain.on("printOrdonnance", (event, data) => {
     },
   });
 
-  // Génération du contenu des médicaments
-  const medListHtml = items
-    .map(
-      (m, i) => `
-        <div class="med-item">
-          <div class="med-header">
-            <div class="med-name">${i + 1}. ${m.name || ""} ${
-              m.dosage || ""
-            }</div>
-            <div class="med-duration">${
-              m.duration ||
-              (m.quantity
-                ? `${m.quantity} boîte${m.quantity > 1 ? "s" : ""}`
-                : "")
-            }</div>
-          </div>
-          <div class="med-frequency">${m.frequency || ""}</div>
-        </div>`,
-    )
-    .join("");
+  // data: URLs are limited in size; fall back to a temp file for very large
+  // documents (e.g. a logo embedded as base64).
+  let tmpFile = null;
+  const dataUrl = "data:text/html;charset=utf-8," + encodeURIComponent(html);
+  if (dataUrl.length < 1800000) {
+    printWindow.loadURL(dataUrl);
+  } else {
+    tmpFile = path.join(os.tmpdir(), `print-${label}-${Date.now()}.html`);
+    fs.writeFileSync(tmpFile, html, "utf8");
+    printWindow.loadFile(tmpFile);
+  }
 
-  const printHtml = `
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ordonnance Médicale</title>
-  <style>
-    @page {
-      size: A4 landscape;
-      margin: 0;
-    }
-
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      width: 29.7cm;
-      height: 21cm;
-      background: white;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      color: #1a1a1a;
-    }
-
-    .ord-container {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 14.85cm;
-      height: 21cm;
-      border: 2px solid #2c3e50;
-      padding: 0.8cm;
-      display: flex;
-      flex-direction: column;
-    }
-
-    /* Order Number - Top Right */
-    .ord-num {
-      position: absolute;
-      top: 0.2cm;
-      right: 0.2cm;
-      font-size: 12px;
-      color: #555;
-      font-weight: 600;
-      background: white;
-      padding: 0.3rem 0.5rem;
-      border-radius: 4px;
-    }
-
-    /* Header Section */
-    .ord-header {
-      border-bottom: 2px solid #2c3e50;
-      padding-bottom: 0.5rem;
-      margin-top: 0rem;
-    }
-
-    .ord-header-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 1rem;
-    }
-
-    .ord-left,
-    .ord-right {
-      flex: 1;
-      font-size: 13px;
-      line-height: 1.5;
-    }
-
-    .ord-center {
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      max-width: 80px;
-    }
-
-    .ord-center img {
-      max-width: 100%;
-      height: auto;
-      max-height: 80px;
-      object-fit: contain;
-    }
-
-    .ord-right {
-      text-align: right;
-      direction: rtl;
-      font-family: 'Arial', sans-serif;
-    }
-
-    .ord-left strong,
-    .ord-right strong {
-      color: #2c3e50;
-      font-size: 14px;
-    }
-
-    .ord-phone {
-      text-align: center;
-      margin-top: 0.5rem;
-      font-weight: 500;
-      font-size: 13px;
-    }
-
-    /* Patient Information */
-    .ord-patient {
-      margin-top: 0.8rem;
-      display: flex;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      font-size: 14px;
-      padding: 0.5rem;
-    }
-
-    .ord-patient strong {
-      color: #2c3e50;
-    }
-
-    /* Title */
-    .ord-title {
-      text-align: center;
-      font-weight: bold;
-      font-size: 20px;
-      margin-top: 1rem;
-      text-decoration: underline;
-      text-decoration-thickness: 2px;
-      text-underline-offset: 4px;
-      color: #2c3e50;
-      letter-spacing: 1px;
-    }
-
-    /* Body - Medications */
-    .ord-body {
-      margin-top: 1.2rem;
-      font-size: 16px;
-      line-height: 1.8;
-      flex: 1;
-      overflow: auto;
-    }
-
-    .med-item {
-      margin-bottom: 0.8rem;
-    }
-
-    .med-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 2rem;
-      margin-bottom: 0.2rem;
-    }
-
-    .med-name {
-      font-weight: 700;
-      font-size: 17px;
-      color: #2c3e50;
-      flex: 1;
-    }
-
-    .med-duration {
-      font-size: 15px;
-      color: #555;
-      font-weight: 500;
-      text-align: right;
-    }
-
-    .med-frequency {
-      margin-left: 1rem;
-      font-size: 15px;
-      color: #555;
-    }
-
-    /* Footer */
-    .ord-footer {
-      text-align: left;
-      margin-top: auto;
-      padding-top: 0.8rem;
-      min-height: 3cm;
-      font-size: 14px;
-      border-top: 1px dashed #2c3e50;
-      font-style: italic;
-      color: #555;
-    }
-
-    /* Print Optimization */
-    @media print {
-      body {
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
+  printWindow.webContents.on("did-finish-load", async () => {
+    // Wait (max 8s) for the page script to finish measuring / paginating
+    const start = Date.now();
+    while (Date.now() - start < 8000) {
+      try {
+        const ready = await printWindow.webContents.executeJavaScript(
+          "window.__printReady === true",
+        );
+        if (ready) break;
+      } catch (_) {
+        /* page not ready yet */
       }
+      await new Promise((r) => setTimeout(r, 100));
     }
-  </style>
-</head>
-<body>
-  <div class="ord-container">
-    <div class="ord-num">N° : ${consultationId}/${ordonnanceId}</div>
+    await new Promise((r) => setTimeout(r, 300)); // let the last paint settle
 
-    <div class="ord-header">
-      <div class="ord-header-top">
-        <div class="ord-left">
-          <strong>${cab.doctorName}</strong><br>
-          ${cab.specialty}<br>
-          <strong>Adresse :</strong> ${cab.address}<br>
-          ${cab.city}
-        </div>
-        
-        <div class="ord-center">
-          <img src="${cab.imageUrl}" alt="Logo Cabinet Médical" onerror="this.src='/uploads/image.PNG'; this.onerror=null;">
-        </div>
-
-        <div class="ord-right">
-          <strong>${cab.doctorNameAr}</strong><br>
-          ${cab.specialtyAr}<br>
-          <strong>العنوان :</strong> ${cab.addressAr}<br>
-          ${cab.cityAr}
-        </div>
-      </div>
-      
-      <div class="ord-phone">
-        <strong>Tél :</strong> ${cab.phones}
-      </div>
-    </div>
-
-    <div class="ord-patient">
-      <span><strong>Nom :</strong> ${nom}</span>
-      <span><strong>Prénom :</strong> ${prenom}</span>
-      <span><strong>Âge :</strong> ${age}</span>
-      <span><strong>Le :</strong> ${new Date().toLocaleDateString(
-        "fr-FR",
-      )}</span>
-    </div>
-
-    <div class="ord-title">ORDONNANCE</div>
-
-    <div class="ord-body">${medListHtml}</div>
-
-    <div class="ord-footer">
-      Signature et cachet du médecin
-    </div>
-  </div>
-</body>
-</html>
-`;
-
-  printWindow.loadURL(
-    "data:text/html;charset=utf-8," + encodeURIComponent(printHtml),
-  );
-
-  printWindow.webContents.on("did-finish-load", () => {
-    setTimeout(() => {
-      printWindow.webContents.print(
-        {
-          silent: false,
-          printBackground: true,
-          margins: { marginType: "none" },
-          pageSize: { name: "A4", width: 297000, height: 210000 },
-          landscape: true,
-        },
-        (success, failureReason) => {
-          if (success) console.log("🖨️ Ordonnance printed successfully");
-          else console.error("❌ Print failed:", failureReason);
-          printWindow.close();
-        },
-      );
-    }, 500);
+    printWindow.webContents.print(
+      {
+        silent: false,
+        printBackground: true,
+        margins: { marginType: "none" },
+        pageSize: { name: "A4", width: 297000, height: 210000 },
+        landscape: true,
+      },
+      (success, failureReason) => {
+        if (success) console.log(`🖨️ ${label} printed successfully`);
+        else console.error(`❌ ${label} print failed:`, failureReason);
+        printWindow.close();
+        if (tmpFile) fs.unlink(tmpFile, () => {});
+      },
+    );
   });
+}
+
+ipcMain.on("printOrdonnance", async (event, data = {}) => {
+  try {
+    const {
+      nom = "",
+      prenom = "",
+      age = "",
+      consultationId,
+      ordonnanceId,
+      items = [],
+      cabinet = {},
+    } = data;
+
+    const cab = await getElectronCabinet(cabinet);
+
+    const html = buildOrdonnanceHtml(
+      {
+        nom,
+        prenom,
+        age,
+        consultationId,
+        ordonnanceId,
+        items,
+      },
+      cab,
+      { autoPrint: false },
+    );
+
+    runElectronPrint(html, "Ordonnance");
+  } catch (error) {
+    console.error("Erreur impression ordonnance:", error);
+
+    event.sender.send("printOrdonnanceError", {
+      message: "Impossible de préparer l'ordonnance pour impression.",
+    });
+  }
 });
 
-ipcMain.on("printBilan", (event, data) => {
-  const {
-    id,
-    nom,
-    prenom,
-    age,
-    consultationId,
-    bilanId,
-    items = [],
-    cabinet = {},
-  } = data;
 
-  const cab = getElectronCabinet(cabinet);
+ipcMain.on("printBilan", async (event, data = {}) => {
+  try {
+    const {
+      nom = "",
+      prenom = "",
+      age = "",
+      consultationId,
+      bilanId,
+      items = [],
+      cabinet = {},
+    } = data;
 
-  // 🪟 Allow file access for local image
-  const printWindow = new BrowserWindow({
-    show: true,
-    width: 1000,
-    height: 700,
-    autoHideMenuBar: true,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      webSecurity: false,
-      allowFileAccessFromFileURLs: true,
-      allowUniversalAccessFromFileURLs: true,
-    },
-  });
+    const cab = await getElectronCabinet(cabinet);
 
-  // 🔬 Generate list of analyses/exams
-  const bilanListHtml = items
-    .map(
-      (b, i) => `
-        <div class="bilan-item">
-          <div class="bilan-name">${i + 1}. ${b.nom || b.name || ""}</div>
-        </div>`,
-    )
-    .join("");
+    const html = buildBilanHtml(
+      { nom, prenom, age, consultationId, bilanId, items },
+      cab,
+      { autoPrint: false },
+    );
 
-  // 🧾 HTML Layout (identical to Ordonnance)
-  const printHtml = `
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <style>
-    @page { size: A4 landscape; margin: 0; }
+    runElectronPrint(html, "Bilan");
+  } catch (error) {
+    console.error("Erreur impression bilan:", error);
 
-    body {
-      margin: 0;
-      padding: 0;
-      width: 29.7cm;
-      height: 21cm;
-      background: white;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      color: #1a1a1a;
-    }
-
-    .ord-container {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 14.85cm;
-      height: 21cm;
-      border: 2px solid #2c3e50;
-      padding: 0.8cm;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .ord-num {
-      position: absolute;
-      top: 0.2cm;
-      right: 0.2cm;
-      font-size: 12px;
-      color: #555;
-      font-weight: 600;
-      background: white;
-      padding: 0.3rem 0.5rem;
-      border-radius: 4px;
-    }
-
-    /* HEADER */
-    .ord-header {
-      border-bottom: 2px solid #2c3e50;
-      padding-bottom: 0.5rem;
-    }
-
-    .ord-header-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 1rem;
-    }
-
-    .ord-left, .ord-right {
-      flex: 1;
-      font-size: 13px;
-      line-height: 1.5;
-    }
-
-    .ord-center {
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      max-width: 80px;
-    }
-
-    .ord-center img {
-      max-width: 100%;
-      max-height: 80px;
-      object-fit: contain;
-    }
-
-    .ord-right {
-      text-align: right;
-      direction: rtl;
-    }
-
-    .ord-left strong, .ord-right strong {
-      color: #2c3e50;
-      font-size: 14px;
-    }
-
-    .ord-phone {
-      text-align: center;
-      margin-top: 0.5rem;
-      font-weight: 500;
-      font-size: 13px;
-    }
-
-    /* PATIENT INFO */
-    .ord-patient {
-      margin-top: 0.8rem;
-      display: flex;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      font-size: 14px;
-      padding: 0.5rem;
-    }
-
-    .ord-title {
-      text-align: center;
-      font-weight: bold;
-      font-size: 20px;
-      margin-top: 1rem;
-      text-decoration: underline;
-      color: #2c3e50;
-    }
-
-    /* BODY */
-    .ord-body {
-      margin-top: 1.2rem;
-      font-size: 16px;
-      line-height: 1.8;
-      flex: 1;
-    }
-
-    .bilan-item {
-      margin-bottom: 1.2rem;
-      font-size: 17px;
-    }
-
-    .bilan-name {
-      font-weight: 600;
-      color: #2c3e50;
-    }
-
-    /* FOOTER */
-    .ord-footer {
-      text-align: left;
-      margin-top: auto;
-      border-top: 1px dashed #2c3e50;
-      padding-top: 0.8rem;
-      font-style: italic;
-      font-size: 14px;
-      color: #555;
-      min-height: 3cm;
-    }
-
-    @media print {
-      body {
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-      }
-    }
-  </style>
-</head>
-
-<body>
-  <div class="ord-container">
-    <div class="ord-num">N° de Bilan : ${consultationId}/${bilanId}</div>
-
-    <div class="ord-header">
-      <div class="ord-header-top">
-        <div class="ord-left">
-          <strong>${cab.doctorName}</strong><br>
-          ${cab.specialty}<br>
-          <strong>Adresse :</strong> ${cab.address}<br>
-          ${cab.city}
-        </div>
-
-        <div class="ord-center">
-          <img src="${cab.imageUrl}" alt="Logo Cabinet Médical" onerror="this.src='/uploads/image.PNG'; this.onerror=null;">
-        </div>
-
-        <div class="ord-right">
-          <strong>${cab.doctorNameAr}</strong><br>
-          ${cab.specialtyAr}<br>
-          <strong>العنوان :</strong> ${cab.addressAr}<br>
-          ${cab.cityAr}
-        </div>
-      </div>
-
-      <div class="ord-phone">
-        <strong>Tél :</strong> ${cab.phones}
-      </div>
-    </div>
-
-    <div class="ord-patient">
-      <span><strong>Nom :</strong> ${nom}</span>
-      <span><strong>Prénom :</strong> ${prenom}</span>
-      <span><strong>Âge :</strong> ${age}</span>
-      <span><strong>Le :</strong> ${new Date().toLocaleDateString(
-        "fr-FR",
-      )}</span>
-    </div>
-
-    <div class="ord-title">BILAN</div>
-
-    <div class="ord-body">${bilanListHtml}</div>
-
-    <div class="ord-footer">Signature et cachet du médecin</div>
-  </div>
-</body>
-</html>
-`;
-
-  // ✅ Load content
-  printWindow.loadURL(
-    "data:text/html;charset=utf-8," + encodeURIComponent(printHtml),
-  );
-
-  // 🖨 Print setup
-  printWindow.webContents.on("did-finish-load", () => {
-    setTimeout(() => {
-      printWindow.webContents.print(
-        {
-          silent: false,
-          printBackground: true,
-          margins: { marginType: "none" },
-          pageSize: { name: "A4", width: 297000, height: 210000 },
-          landscape: true,
-        },
-        (success, failureReason) => {
-          if (success) console.log("🖨️ Bilan printed successfully");
-          else console.error("❌ Print failed:", failureReason);
-          printWindow.close();
-        },
-      );
-    }, 500);
-  });
+    event.sender.send("printBilanError", {
+      message: "Impossible de préparer le bilan pour impression.",
+    });
+  }
 });
 
-ipcMain.on("printJustification", (event, data) => {
-  const {
-    id,
-    nom,
-    prenom,
-    age,
-    consultationId,
-    justificationId,
-    texte = "",
-    cabinet = {},
-  } = data;
+ipcMain.on("printJustification", async (event, data = {}) => {
+  try {
+    const {
+      nom = "",
+      prenom = "",
+      age = "",
+      consultationId,
+      justificationId,
+      texte = "",
+      cabinet = {},
+    } = data;
 
-  const cab = getElectronCabinet(cabinet);
+    const cab = await getElectronCabinet(cabinet);
 
-  const printWindow = new BrowserWindow({
-    show: true,
-    width: 1000,
-    height: 700,
-    autoHideMenuBar: true,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      webSecurity: false,
-      allowFileAccessFromFileURLs: true,
-      allowUniversalAccessFromFileURLs: true,
-    },
-  });
+    const html = buildJustificationHtml(
+      {
+        nom,
+        prenom,
+        age,
+        consultationId,
+        justificationId,
+        texte,
+      },
+      cab,
+      { autoPrint: false },
+    );
 
-  const formattedText = (texte || "")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
-    .map((p) => `<p style="margin-bottom: 0.8rem; text-indent: 1rem;">${p}</p>`)
-    .join("");
+    runElectronPrint(html, "Justification");
+  } catch (error) {
+    console.error("Erreur impression justification:", error);
 
-  const printHtml = `
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <style>
-    @page { size: A4 landscape; margin: 0; }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
-      width: 29.7cm;
-      height: 21cm;
-      background: white;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      color: #1a1a1a;
-    }
-
-    .ord-container {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 14.85cm;
-      height: 21cm;
-      border: 2px solid #2c3e50;
-      padding: 0.8cm;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .ord-num {
-      position: absolute;
-      top: 0.2cm;
-      right: 0.2cm;
-      font-size: 12px;
-      color: #555;
-      font-weight: 600;
-      background: white;
-      padding: 0.3rem 0.5rem;
-      border-radius: 4px;
-    }
-
-    /* HEADER */
-    .ord-header {
-      border-bottom: 2px solid #2c3e50;
-      padding-bottom: 0.5rem;
-    }
-
-    .ord-header-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 1rem;
-    }
-
-    .ord-left, .ord-right {
-      flex: 1;
-      font-size: 13px;
-      line-height: 1.5;
-    }
-
-    .ord-center {
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      max-width: 80px;
-    }
-
-    .ord-center img {
-      max-width: 100%;
-      max-height: 80px;
-      object-fit: contain;
-    }
-
-    .ord-right {
-      text-align: right;
-      direction: rtl;
-    }
-
-    .ord-left strong, .ord-right strong {
-      color: #2c3e50;
-      font-size: 14px;
-    }
-
-    .ord-phone {
-      text-align: center;
-      margin-top: 0.5rem;
-      font-weight: 500;
-      font-size: 13px;
-    }
-
-    /* PATIENT INFO */
-    .ord-patient {
-      margin-top: 0.8rem;
-      display: flex;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      font-size: 14px;
-      padding: 0.5rem;
-    }
-
-    .ord-title {
-      text-align: center;
-      font-weight: bold;
-      font-size: 18px;
-      margin-top: 0.9rem;
-      text-decoration: underline;
-      text-decoration-thickness: 2px;
-      text-underline-offset: 4px;
-      color: #2c3e50;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-    }
-
-    /* BODY */
-    .ord-body {
-      margin-top: 1.2rem;
-      font-size: 15px;
-      line-height: 1.8;
-      flex: 1;
-      overflow: auto;
-      text-align: justify;
-    }
-
-    .ord-meta {
-      margin-top: 0.5rem;
-      font-size: 14px;
-      color: #2c3e50;
-      font-weight: 600;
-    }
-
-    /* FOOTER */
-    .ord-footer {
-      text-align: left;
-      margin-top: auto;
-      border-top: 1px dashed #2c3e50;
-      padding-top: 0.8rem;
-      font-style: italic;
-      font-size: 14px;
-      color: #555;
-      min-height: 3cm;
-    }
-
-    @media print {
-      body {
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-      }
-    }
-  </style>
-</head>
-
-<body>
-  <div class="ord-container">
-    <div class="ord-num">N° : ${consultationId || "-"}/${justificationId || "-"}</div>
-
-    <div class="ord-header">
-      <div class="ord-header-top">
-        <div class="ord-left">
-          <strong>${cab.doctorName}</strong><br>
-          ${cab.specialty}<br>
-          <strong>Adresse :</strong> ${cab.address}<br>
-          ${cab.city}
-        </div>
-
-        <div class="ord-center">
-          <img src="${cab.imageUrl}" alt="Logo Cabinet Médical" onerror="this.src='/uploads/image.PNG'; this.onerror=null;">
-        </div>
-
-        <div class="ord-right">
-          <strong>${cab.doctorNameAr}</strong><br>
-          ${cab.specialtyAr}<br>
-          <strong>العنوان :</strong> ${cab.addressAr}<br>
-          ${cab.cityAr}
-        </div>
-      </div>
-
-      <div class="ord-phone">
-        <strong>Tél :</strong> ${cab.phones}
-      </div>
-    </div>
-
-    <div class="ord-patient">
-      <span><strong>Nom :</strong> ${nom}</span>
-      <span><strong>Prénom :</strong> ${prenom}</span>
-      <span><strong>Âge :</strong> ${age}</span>
-      <span><strong>Le :</strong> ${new Date().toLocaleDateString(
-        "fr-FR",
-      )}</span>
-    </div>
-
-    <div class="ord-title">JUSTIFICATION MÉDICALE</div>
-
-    <div class="ord-body">
-      ${formattedText || "<p>Je soussigné(e), Docteur en médecine, certifie avoir examiné ce jour l'enfant mentionné ci-dessus et que son état de santé justifie ce certificat médical.</p>"}
-    </div>
-
-    <div class="ord-footer">Signature et cachet du médecin</div>
-  </div>
-</body>
-</html>
-`;
-
-  // ✅ Load content
-  printWindow.loadURL(
-    "data:text/html;charset=utf-8," + encodeURIComponent(printHtml),
-  );
-
-  // 🖨 Print setup
-  printWindow.webContents.on("did-finish-load", () => {
-    setTimeout(() => {
-      printWindow.webContents.print(
-        {
-          silent: false,
-          printBackground: true,
-          margins: { marginType: "none" },
-          pageSize: { name: "A4", width: 297000, height: 210000 },
-          landscape: true,
-        },
-        (success, failureReason) => {
-          if (success) console.log("🖨️ Justification printed successfully");
-          else console.error("❌ Print failed:", failureReason);
-          printWindow.close();
-        },
-      );
-    }, 500);
-  });
+    event.sender.send("printJustificationError", {
+      message: "Impossible de préparer la justification pour impression.",
+    });
+  }
 });
 
 ipcMain.handle("backup-database", async (event, options = {}) => {
@@ -1289,7 +669,7 @@ ipcMain.handle("backup-database", async (event, options = {}) => {
   const timestamp = new Date().toISOString().slice(0, 10);
   const { canceled, filePath } = await dialog.showSaveDialog({
     title: "Exporter la base de données sécurisée",
-    defaultPath: `backup_pediatre_${timestamp}.cbak`,
+    defaultPath: `backup_dentaire_${timestamp}.cbak`,
     filters: [
       { name: "Sauvegarde sécurisée (*.cbak, *.enc, *.json)", extensions: ["cbak", "enc", "json"] },
       { name: "Tous les fichiers", extensions: ["*"] },
@@ -1302,7 +682,11 @@ ipcMain.handle("backup-database", async (event, options = {}) => {
 
   try {
     const result = await backupDatabase(filePath, password);
-    return { success: true, filePath: result.filePath, message: "Base de données exportée et chiffrée avec succès." };
+    return {
+      success: true,
+      filePath: result.filePath,
+      message: "Base de données exportée et chiffrée avec succès.",
+    };
   } catch (err) {
     return { success: false, message: err.message };
   }
@@ -1346,7 +730,11 @@ ipcMain.handle("restore-database", async (event, options = {}) => {
     });
 
     if (canceled || !filePaths || filePaths.length === 0) {
-      return { canceled: true, success: false, message: "Aucun fichier sélectionné" };
+      return {
+        canceled: true,
+        success: false,
+        message: "Aucun fichier sélectionné",
+      };
     }
     filePath = filePaths[0];
   }
@@ -1354,7 +742,10 @@ ipcMain.handle("restore-database", async (event, options = {}) => {
   console.log("🗂 Restoring backup file:", filePath);
   try {
     const result = await restoreDatabase(filePath, password);
-    return { success: true, message: result.message || "Base de données restaurée avec succès." };
+    return {
+      success: true,
+      message: result.message || "Base de données restaurée avec succès.",
+    };
   } catch (err) {
     return { success: false, message: err.message };
   }
@@ -1411,4 +802,3 @@ ipcMain.handle("reset-zoom", (event) => {
   }
   return 1.0;
 });
-
