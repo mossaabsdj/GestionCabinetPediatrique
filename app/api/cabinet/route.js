@@ -1,28 +1,23 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import param from "@/param.json";
-import path from "path";
-import { writeFile, readFile } from "fs/promises";
-import { getAppRootDir } from "@/lib/uploads";
 
 export const dynamic = "force-dynamic";
 
 const DEFAULT_CABINET_DATA = {
-  title: param.title || "Professeur",
-  doctorName: param.doctorName || "Professeur",
-  doctorNameAr: param.doctorNameAr || "بروفيسور",
-  specialty:
-    param.specialty || "Médecin Spécialiste en Pédiatrie et Néonatologie",
-  specialtyAr: param.specialtyAr || "طبيبة مختصة في طب الأطفال و حديثي الولادة",
-  cabinetName: param.cabinetName || "Cabinet Pédiatrique",
-  cabinetNameAr: param.cabinetNameAr || "عيادة طب الأطفال",
-  address: param.address || "Rue Frères KAFI logts 38, 1er étage",
-  addressAr: param.addressAr || "شارع الإخوة كافي عقار 38 الطابق الأول",
-  city: param.city || "El-Harrouch SKIKDA",
-  cityAr: param.cityAr || "(بزاز لعلاوي) الحروش - سكيكدة",
-  phones: param.phones || "0652 76 89 72 / 0562 24 40 87",
+  title: "Cabinet Pédiatrique",
+  doctorName: "Professeur",
+  doctorNameAr: "بروفيسور",
+  specialty: "Médecin Spécialiste en Pédiatrie et Néonatologie",
+  specialtyAr: "طبيبة مختصة في طب الأطفال و حديثي الولادة",
+  cabinetName: "Cabinet Pédiatrique",
+  cabinetNameAr: "عيادة طب الأطفال",
+  address: "Rue Frères KAFI logts 38, 1er étage",
+  addressAr: "شارع الإخوة كافي عقار 38 الطابق الأول",
+  city: "El-Harrouch SKIKDA",
+  cityAr: "(بزاز لعلاوي) الحروش - سكيكدة",
+  phones: "0652 76 89 72 / 0562 24 40 87",
   logo: "/uploads/image.PNG",
-  numOrdre: param.numOrdre || "8130/23",
+  numOrdre: "8130/23",
 };
 
 // =========================
@@ -39,11 +34,20 @@ export async function GET() {
       });
     }
 
-    return NextResponse.json(cabinet);
+    return NextResponse.json({
+      ...cabinet,
+      appName: cabinet.title || DEFAULT_CABINET_DATA.title,
+    });
   } catch (error) {
     console.error("GET /api/cabinet error:", error);
     // Fallback to default in case of DB read error
-    return NextResponse.json(DEFAULT_CABINET_DATA, { status: 200 });
+    return NextResponse.json(
+      {
+        ...DEFAULT_CABINET_DATA,
+        appName: DEFAULT_CABINET_DATA.title,
+      },
+      { status: 200 }
+    );
   }
 }
 
@@ -68,11 +72,18 @@ export async function PUT(req) {
         logoValue = `/uploads/${logoValue.replace(/^uploads[\\/]/, "")}`;
       }
     } else {
-      logoValue = "/uploads/image.PNG";
+      logoValue = existing?.logo || "/uploads/image.PNG";
     }
 
+    const appTitle = (
+      body.title ||
+      body.appName ||
+      existing?.title ||
+      DEFAULT_CABINET_DATA.title
+    ).trim();
+
     const dataToSave = {
-      title: body.title?.trim() || "Professeur",
+      title: appTitle,
       doctorName: body.doctorName?.trim() || "Professeur",
       doctorNameAr: body.doctorNameAr?.trim() || "بروفيسور",
       specialty:
@@ -91,7 +102,10 @@ export async function PUT(req) {
       phones:
         body.phones?.trim() || "0652 76 89 72 / 0562 24 40 87",
       logo: logoValue,
-      numOrdre: body.numOrdre !== undefined ? String(body.numOrdre).trim() : (param.numOrdre || "8130/23"),
+      numOrdre:
+        body.numOrdre !== undefined
+          ? String(body.numOrdre).trim()
+          : (existing?.numOrdre || "8130/23"),
     };
 
     let updated;
@@ -106,24 +120,10 @@ export async function PUT(req) {
       });
     }
 
-    // Synchronize to param.json file if possible
-    try {
-      const paramPath = path.join(getAppRootDir(), "param.json");
-      let currentParam = {};
-      try {
-        currentParam = JSON.parse(await readFile(paramPath, "utf-8"));
-      } catch (e) {}
-
-      const merged = {
-        ...currentParam,
-        ...dataToSave,
-      };
-      await writeFile(paramPath, JSON.stringify(merged, null, 2), "utf-8");
-    } catch (err) {
-      console.warn("Could not sync to param.json:", err);
-    }
-
-    return NextResponse.json(updated);
+    return NextResponse.json({
+      ...updated,
+      appName: updated.title,
+    });
   } catch (error) {
     console.error("PUT /api/cabinet error:", error);
     return NextResponse.json(

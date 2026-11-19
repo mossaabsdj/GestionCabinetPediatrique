@@ -1,3 +1,6 @@
+const { loadEnv } = require("./lib/env-loader");
+loadEnv();
+
 const next = require("next");
 const path = require("path");
 const express = require("express");

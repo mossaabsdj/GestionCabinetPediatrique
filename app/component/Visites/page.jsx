@@ -36,7 +36,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { printOrdonnance, printBilan, printJustification } from "@/lib/printer";
-import param from "@/param.json";
 
 function isSameDate(itemDate, targetDateStr) {
   if (!targetDateStr) return true;

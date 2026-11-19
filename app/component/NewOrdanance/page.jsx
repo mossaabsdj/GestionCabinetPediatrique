@@ -36,7 +36,6 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { printOrdonnance, printBilan, printJustification } from "@/lib/printer";
-import param from "@/param.json";
 
 export default function PrescriptionModal({
   open = true,
@@ -73,6 +72,25 @@ export default function PrescriptionModal({
   const [justifTypes, setJustifTypes] = useState([]);
   const [tmpfreq, setTmpfreq] = useState("");
   const [tmpDose, setTmpDose] = useState("");
+  const [doctorName, setDoctorName] = useState("Professeur");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("cabinet");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed?.doctorName) setDoctorName(parsed.doctorName);
+        }
+      } catch (_) {}
+    }
+    fetch("/api/cabinet")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.doctorName) setDoctorName(data.doctorName);
+      })
+      .catch(() => {});
+  }, []);
   const [tmpDuration, setTmpDuration] = useState("");
   const [tmpQuantite, setTmpQuantite] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -1312,7 +1330,7 @@ export default function PrescriptionModal({
                 <div className="ord-print-header">
                   <div className="ord-print-title">Ordonnance Médicale</div>
                   <div className="ord-print-doc">
-                    {param.doctorName || "Professeur"}
+                    {doctorName || "Professeur"}
                   </div>
                   <div className="ord-print-date">
                     {new Date().toLocaleDateString("fr-FR", {
@@ -1591,7 +1609,7 @@ export default function PrescriptionModal({
                           Bilans & Analyses
                         </div>
                         <div className="bilan-print-doc">
-                          {param.doctorName || "Professeur"}
+                          {doctorName || "Professeur"}
                         </div>
                         <div className="bilan-print-date">
                           {new Date().toLocaleDateString("fr-FR", {

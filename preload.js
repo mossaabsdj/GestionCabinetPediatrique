@@ -5,6 +5,8 @@ console.log("Preload script loaded");
 contextBridge.exposeInMainWorld("electron", {
   getAppPath: () => ipcRenderer.invoke("get-app-path"),
   getUploadsPath: () => ipcRenderer.invoke("get-uploads-path"),
+  getCabinet: () => ipcRenderer.invoke("get-cabinet"),
+  updateCabinet: (data) => ipcRenderer.send("cabinet-updated", data),
 
   printOrdonnance: (data) => ipcRenderer.send("printOrdonnance", data),
   printBilan: (data) => ipcRenderer.send("printBilan", data),

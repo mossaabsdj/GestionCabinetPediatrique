@@ -62,7 +62,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import param from "@/param.json";
 
 // === Carousel Slides Data (Captures d'écran réelles du Cabinet Pédiatrique) ===
 const CAROUSEL_SLIDES = [
@@ -303,6 +302,37 @@ const staggerContainer = {
 
 export default function AproposPage() {
   const router = useRouter();
+  const [cabinetInfo, setCabinetInfo] = useState({
+    cabinetName: "Cabinet Pédiatrique",
+    doctorName: "Professeur",
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("cabinet");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          setCabinetInfo({
+            cabinetName: parsed.cabinetName || "Cabinet Pédiatrique",
+            doctorName: parsed.doctorName || "Professeur",
+          });
+        }
+      } catch (_) {}
+    }
+    fetch("/api/cabinet")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data) {
+          setCabinetInfo({
+            cabinetName: data.cabinetName || "Cabinet Pédiatrique",
+            doctorName: data.doctorName || "Professeur",
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const [isLoading, setIsLoading] = useState(true);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -398,10 +428,10 @@ export default function AproposPage() {
           </div>
           <div>
             <h2 className="text-base sm:text-lg font-bold text-gray-900 leading-tight">
-              {param.cabinetName || "Cabinet Pédiatrique"}
+              {cabinetInfo.cabinetName || "Cabinet Pédiatrique"}
             </h2>
             <p className="text-xs text-[var(--color-600)] font-semibold">
-              {param.doctorName || "Professeur"}
+              {cabinetInfo.doctorName || "Professeur"}
             </p>
           </div>
         </div>
@@ -435,9 +465,9 @@ export default function AproposPage() {
           </div>
 
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-gray-900 tracking-tight max-w-4xl mx-auto leading-tight">
-            {param.cabinetName || "Cabinet Pédiatrique"}{" "}
+            {cabinetInfo.cabinetName || "Cabinet Pédiatrique"}{" "}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--color-600)] to-[var(--color-400)]">
-              {param.doctorName || "Professeur"}
+              {cabinetInfo.doctorName || "Professeur"}
             </span>
           </h1>
 

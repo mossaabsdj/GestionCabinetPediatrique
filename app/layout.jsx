@@ -2,14 +2,13 @@ import "@/app/globals.css";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import SidebarPage from "@/app/component/NewSideBar/page";
 import ExitButton from "@/app/component/exitbutton/page";
-import param from "@/param.json";
 import { ThemeProvider } from "@/context/theme-context";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: param.title,
-  description: "make world better",
+  title: "Cabinet Pédiatrique",
+  description: "Système de Gestion Médicale pour Cabinet de Pédiatrie",
 };
 
 export default function RootLayout({ children }) {

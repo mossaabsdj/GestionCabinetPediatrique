@@ -61,15 +61,15 @@ const fadeIn = {
 };
 
 const DEFAULT_CABINET_DATA = {
-  appName: "Cabinet Dentaire",
-  title: "Docteur",
-  doctorName: "Docteur",
-  doctorNameAr: "دكتور",
-  specialty: "Chirurgien Dentiste",
-  specialtyAr: "جراحة و طب الأسنان",
-  cabinetName: "Cabinet Dentaire",
-  cabinetNameAr: "عيادة طب الأسنان",
-  numOrdre: "",
+  appName: "Cabinet Pédiatrique",
+  title: "Cabinet Pédiatrique",
+  doctorName: "Professeur",
+  doctorNameAr: "بروفيسور",
+  specialty: "Médecin Spécialiste en Pédiatrie et Néonatologie",
+  specialtyAr: "طبيبة مختصة في طب الأطفال و حديثي الولادة",
+  cabinetName: "Cabinet Pédiatrique",
+  cabinetNameAr: "عيادة طب الأطفال",
+  numOrdre: "8130/23",
   address: "Rue Frères KAFI logts 38, 1er étage",
   addressAr: "شارع الإخوة كافي عقار 38 الطابق الأول",
   city: "El-Harrouch SKIKDA",
@@ -167,7 +167,15 @@ export default function ParametrePage() {
         const res = await fetch("/api/cabinet");
         if (res.ok) {
           const data = await res.json();
-          setCabinet((prev) => ({ ...prev, ...data }));
+          const merged = { ...DEFAULT_CABINET_DATA, ...data };
+          if (!merged.title && merged.appName) merged.title = merged.appName;
+          if (!merged.appName && merged.title) merged.appName = merged.title;
+          setCabinet(merged);
+          if (typeof window !== "undefined") {
+            if (merged.title) localStorage.setItem("appTitle", merged.title);
+            localStorage.setItem("cabinet", JSON.stringify(merged));
+            localStorage.setItem("cabinetData", JSON.stringify(merged));
+          }
         }
       } catch (err) {
         console.error("Erreur de chargement des paramètres du cabinet:", err);
@@ -180,7 +188,12 @@ export default function ParametrePage() {
 
   // === Handle Cabinet Field Change (Live updates) ===
   const handleCabinetChange = (field, value) => {
-    setCabinet((prev) => ({ ...prev, [field]: value }));
+    setCabinet((prev) => {
+      const updated = { ...prev, [field]: value };
+      if (field === "title") updated.appName = value;
+      if (field === "appName") updated.title = value;
+      return updated;
+    });
   };
 
   // === Helper: Compress and convert image to Base64 Data URL ===
@@ -277,7 +290,18 @@ export default function ParametrePage() {
       }
 
       const savedCabinet = await res.json();
-      setCabinet((prev) => ({ ...prev, ...savedCabinet, logo: chosenLogo }));
+      const finalCabinet = { ...savedCabinet, logo: chosenLogo };
+      if (!finalCabinet.title && finalCabinet.appName) finalCabinet.title = finalCabinet.appName;
+      if (!finalCabinet.appName && finalCabinet.title) finalCabinet.appName = finalCabinet.title;
+      setCabinet((prev) => ({ ...prev, ...finalCabinet }));
+
+      if (typeof window !== "undefined") {
+        if (finalCabinet.title) localStorage.setItem("appTitle", finalCabinet.title);
+        localStorage.setItem("cabinet", JSON.stringify(finalCabinet));
+        localStorage.setItem("cabinetData", JSON.stringify(finalCabinet));
+        window.dispatchEvent(new CustomEvent("cabinet-updated", { detail: finalCabinet }));
+        window?.electron?.updateCabinet?.(finalCabinet);
+      }
 
       showAlert(
         "success",
@@ -317,8 +341,20 @@ export default function ParametrePage() {
       }
 
       const updated = await res.json();
-      setCabinet((prev) => ({ ...prev, ...updated }));
+      const finalCabinet = { ...cabinet, ...updated };
+      if (!finalCabinet.title && finalCabinet.appName) finalCabinet.title = finalCabinet.appName;
+      if (!finalCabinet.appName && finalCabinet.title) finalCabinet.appName = finalCabinet.title;
+      setCabinet(finalCabinet);
       setIsCabinetModalOpen(false);
+
+      if (typeof window !== "undefined") {
+        const titleToSave = finalCabinet.title || finalCabinet.appName;
+        if (titleToSave) localStorage.setItem("appTitle", titleToSave);
+        localStorage.setItem("cabinet", JSON.stringify(finalCabinet));
+        localStorage.setItem("cabinetData", JSON.stringify(finalCabinet));
+        window.dispatchEvent(new CustomEvent("cabinet-updated", { detail: finalCabinet }));
+        window?.electron?.updateCabinet?.(finalCabinet);
+      }
 
       showAlert(
         "success",
@@ -544,10 +580,10 @@ export default function ParametrePage() {
         {/* Bloc Gauche : Médecin (Français) */}
         <div className="flex-1 text-[11px] text-gray-800 leading-snug">
           <strong className="text-sm text-[#2c3e50] font-extrabold block mb-0.5">
-            {cabinet.doctorName || "Docteur"}
+            {cabinet.doctorName || "Professeur"}
           </strong>
           <div className="text-gray-700 font-semibold mb-0.5 text-xs">
-            {cabinet.specialty || "Chirurgien Dentiste"}
+            {cabinet.specialty || "Médecin Spécialiste en Pédiatrie et Néonatologie"}
           </div>
           {cabinet.cabinetName && (
             <div className="text-gray-600 text-[10px] font-medium">
@@ -575,10 +611,10 @@ export default function ParametrePage() {
           dir="rtl"
         >
           <strong className="text-sm text-[#2c3e50] font-extrabold block mb-0.5">
-            {cabinet.doctorNameAr || "طبيب"}
+            {cabinet.doctorNameAr || "بروفيسور"}
           </strong>
           <div className="text-gray-700 font-semibold mb-0.5 text-xs">
-            {cabinet.specialtyAr || "جراحة الأسنان"}
+            {cabinet.specialtyAr || "طبيبة مختصة في طب الأطفال و حديثي الولادة"}
           </div>
           {cabinet.cabinetNameAr && (
             <div className="text-gray-600 text-[10px]">
@@ -695,9 +731,9 @@ export default function ParametrePage() {
             className="md:col-span-2"
             icon={User}
             label="Nom de L'application"
-            value={cabinet.title || ""}
+            value={cabinet.title || cabinet.appName || ""}
             onChange={(e) => handleCabinetChange("title", e.target.value)}
-            placeholder="Ex: Docteur ou Professeur"
+            placeholder="Ex: Cabinet Pédiatrique"
           />
 
           {/* Nom du praticien : FR | AR */}
@@ -723,7 +759,7 @@ export default function ParametrePage() {
             label="Spécialité médicale (Français)"
             value={cabinet.specialty || ""}
             onChange={(e) => handleCabinetChange("specialty", e.target.value)}
-            placeholder="Ex: Chirurgien Dentiste"
+            placeholder="Ex: Médecin Spécialiste en Pédiatrie et Néonatologie"
           />
           <Field
             rtl
@@ -731,7 +767,7 @@ export default function ParametrePage() {
             label="الاختصاص الطبي (العربية)"
             value={cabinet.specialtyAr || ""}
             onChange={(e) => handleCabinetChange("specialtyAr", e.target.value)}
-            placeholder="مثال: جراحة و طب الأسنان"
+            placeholder="مثال: طبيبة مختصة في طب الأطفال و حديثي الولادة"
           />
         </div>
       </div>
@@ -749,7 +785,7 @@ export default function ParametrePage() {
             label="Nom du cabinet (Français)"
             value={cabinet.cabinetName || ""}
             onChange={(e) => handleCabinetChange("cabinetName", e.target.value)}
-            placeholder="Ex: Cabinet Dentaire"
+            placeholder="Ex: Cabinet Pédiatrique"
           />
           <Field
             rtl
@@ -757,7 +793,7 @@ export default function ParametrePage() {
             label="اسم العيادة (العربية)"
             value={cabinet.cabinetNameAr || ""}
             onChange={(e) => handleCabinetChange("cabinetNameAr", e.target.value)}
-            placeholder="مثال: عيادة طب الأسنان"
+            placeholder="مثال: عيادة طب الأطفال"
           />
 
           {/* N° d'Ordre Field */}
@@ -1000,31 +1036,7 @@ export default function ParametrePage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Nom de l'application */}
-              <div className="flex flex-col sm:flex-row sm:items-end gap-3 max-w-xl">
-                <Field
-                  className="flex-1"
-                  icon={Sparkles}
-                  label="Nom de l'application"
-                  value={cabinet.appName || ""}
-                  onChange={(e) => handleCabinetChange("appName", e.target.value)}
-                  placeholder="Ex: Cabinet Dentaire"
-                  helper="Affiché comme titre de l'application"
-                />
-                <button
-                  type="button"
-                  onClick={handleSaveCabinet}
-                  disabled={savingCabinet}
-                  className="px-5 py-2.5 text-sm font-bold text-white bg-[var(--color-600)] hover:bg-[var(--color-700)] rounded-xl transition-all shadow-sm disabled:opacity-50 inline-flex items-center justify-center gap-2"
-                >
-                  {savingCabinet ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Save className="w-4 h-4" />
-                  )}
-                  Enregistrer
-                </button>
-              </div>
+              
 
               {/* Thème */}
               <Select value={theme} onValueChange={handleThemeChange}>

@@ -1,5 +1,5 @@
 {
-  "name": "pediatre",
+  "name": "cabinet-pediatrique",
   "version": "4.0.2",
   "description": "Application de gestion médicale pour le cabinet  (Pédiatre).",
   "author": "Mossaab Saad Djaballahe",
@@ -18,7 +18,7 @@
     "test": "node test.js"
   },
   "build": {
-    "appId": "com.mossaabsdj.dr-amel-pediatre",
+    "appId": "com.mossaabsdj.cabinet-pediatrique",
     "executableName": "Cabinet Pediatrique",
     "productName": "Cabinet Pediatrique",
     "files": [
@@ -42,20 +42,13 @@
       "backup-crypto.js",
       "node_modules/**",
       "app/generated/prisma/**",
-      "package.json"
+      "package.json",
+      ".env"
     ],
     "extraFiles": [
       {
         "from": "public/",
         "to": "public"
-      },
-      {
-        "from": "param.json",
-        "to": "param.json"
-      },
-      {
-        "from": ".env",
-        "to": ".env"
       }
     ],
     "asarUnpack": [
@@ -74,7 +67,7 @@
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "shortcutName": "Dr Amel Pediatre"
+      "shortcutName": "cabinet pediatrique"
     },
     "publish": {
       "provider": "github",

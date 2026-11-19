@@ -1,3 +1,6 @@
+const { loadEnv } = require("./lib/env-loader");
+loadEnv();
+
 const { app, BrowserWindow, ipcMain, dialog } = require("electron");
 const path = require("path");
 const fs = require("fs");
@@ -25,7 +28,7 @@ try {
 }
 
 const DEFAULT_CABINET = {
-  title: "Professeur",
+  title: "Cabinet Pédiatrique",
   doctorName: "Professeur",
   doctorNameAr: "بروفيسور",
   specialty: "Médecin Spécialiste en Pédiatrie et Néonatologie",
@@ -451,6 +454,13 @@ ipcMain.handle("get-uploads-path", () => {
 
 ipcMain.handle("get-cabinet", async () => {
   return await getCabinetData();
+});
+
+ipcMain.on("cabinet-updated", (event, data = {}) => {
+  cachedCabinet = { ...cachedCabinet, ...data };
+  if (mainWindow && (data.title || data.appName)) {
+    mainWindow.setTitle(data.title || data.appName);
+  }
 });
 
 async function getElectronCabinet(customCab = {}) {

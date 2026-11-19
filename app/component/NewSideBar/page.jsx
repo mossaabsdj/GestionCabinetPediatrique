@@ -1,7 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import param from "@/param.json";
 
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -18,7 +17,6 @@ import {
   Calendar,
   Sparkles,
 } from "lucide-react";
-import app from "@/param.json";
 import LoadingScreen from "@/app/component/LoadingScreen/page";
 
 const Sidebar = ({
@@ -26,12 +24,65 @@ const Sidebar = ({
   onNavigate,
   collapsed = false,
   onToggleCollapse,
-  userInfo = { name: app.title, role: "Médecin" },
+  userInfo,
   handleparam,
 }) => {
   const [loading, setLoading] = useState(false);
   const [activeItem, setActiveItem] = useState(items[0]?.url || "");
   const [hoveredItem, setHoveredItem] = useState(null);
+  const [appTitle, setAppTitle] = useState("Cabinet Pédiatrique");
+
+  useEffect(() => {
+    const updateTitle = (data) => {
+      if (data?.title) setAppTitle(data.title);
+      else if (data?.appName) setAppTitle(data.appName);
+    };
+
+    if (typeof window !== "undefined") {
+      try {
+        const storedTitle = localStorage.getItem("appTitle");
+        if (storedTitle) setAppTitle(storedTitle);
+        const stored = localStorage.getItem("cabinet");
+        if (stored) updateTitle(JSON.parse(stored));
+      } catch (_) {}
+    }
+
+    fetch("/api/cabinet")
+      .then((res) => res.json())
+      .then((data) => {
+        updateTitle(data);
+        if (typeof window !== "undefined") {
+          try {
+            if (data?.title || data?.appName) {
+              localStorage.setItem("appTitle", data.title || data.appName);
+            }
+            localStorage.setItem("cabinet", JSON.stringify(data));
+          } catch (_) {}
+        }
+      })
+      .catch(() => {});
+
+    const handleCabinetUpdate = (e) => {
+      if (e?.detail) {
+        updateTitle(e.detail);
+      } else if (typeof window !== "undefined") {
+        try {
+          const storedTitle = localStorage.getItem("appTitle");
+          if (storedTitle) setAppTitle(storedTitle);
+          const stored = localStorage.getItem("cabinet");
+          if (stored) updateTitle(JSON.parse(stored));
+        } catch (_) {}
+      }
+    };
+
+    window.addEventListener("cabinet-updated", handleCabinetUpdate);
+    window.addEventListener("storage", handleCabinetUpdate);
+    return () => {
+      window.removeEventListener("cabinet-updated", handleCabinetUpdate);
+      window.removeEventListener("storage", handleCabinetUpdate);
+    };
+  }, []);
+
   const handleExit = () => {
     if (typeof window !== "undefined" && window?.electron?.exit) {
       window.electron.exit();
@@ -55,6 +106,8 @@ const Sidebar = ({
     }
   };
 
+  const effectiveUserInfo = userInfo || { name: appTitle, role: "Médecin Pédiatre" };
+
   return (
     <motion.div
       animate={{ width: collapsed ? 80 : 280 }}
@@ -77,7 +130,7 @@ const Sidebar = ({
                   <Stethoscope className="w-6 h-6" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold">{param.title}</h1>
+                  <h1 className="text-xl font-bold">{appTitle}</h1>
                   <p className="text-xs text-[var(--color-300)]">
                     Health System
                   </p>
@@ -249,7 +302,7 @@ export default function App() {
         onToggleCollapse={() => setCollapsed(!collapsed)}
         onNavigate={handleNavigate}
         handleparam={handleParam}
-        userInfo={{ name: param.title, role: "Médecin Pédiatre" }}
+        userInfo={{ role: "Médecin Pédiatre" }}
       />
     </div>
   );
