@@ -266,12 +266,15 @@ export default function PatientModal({ open, onClose, patient = {} }) {
   const handleOpenFile = (fileName) => {
     if (!fileName) return;
     if (typeof window !== "undefined" && window?.electron?.openFile) {
-      const fullPath = basePath
-        ? `${basePath}/public/uploads/${fileName}`
-        : fileName;
-      window.electron.openFile(fullPath);
+      window.electron.openFile(fileName);
     } else if (typeof window !== "undefined") {
-      window.open(`/uploads/${fileName}`, "_blank");
+      const url =
+        fileName.startsWith("http://") ||
+        fileName.startsWith("https://") ||
+        fileName.startsWith("/")
+          ? fileName
+          : `/uploads/${fileName}`;
+      window.open(url, "_blank");
     }
   };
 

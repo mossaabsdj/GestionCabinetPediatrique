@@ -234,7 +234,7 @@ export default function NewConsultationPage({
       }
 
       const data = await res.json();
-      const savedName = file.name.replace(/ /g, "_");
+      const savedName = data.filename || file.name.replace(/\s+/g, "_");
       setRadioForm((prev) => ({
         ...prev,
         fichier: savedName,
@@ -449,14 +449,31 @@ export default function NewConsultationPage({
       unite: "g/L",
     },
   ];
+  const handleOpenFile = (fileName) => {
+    if (!fileName) return;
+    if (typeof window !== "undefined" && window?.electron?.openFile) {
+      window.electron.openFile(fileName);
+    } else if (typeof window !== "undefined") {
+      const url =
+        fileName.startsWith("http://") ||
+        fileName.startsWith("https://") ||
+        fileName.startsWith("/")
+          ? fileName
+          : `/uploads/${fileName}`;
+      window.open(url, "_blank");
+    }
+  };
+
   function AttachedCard({
     icon: Icon,
     label,
     detail,
     onEdit,
     onDelete,
+    onView,
     editTitle,
     deleteTitle,
+    viewTitle = "Voir le fichier",
   }) {
     return (
       <div className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition-colors hover:border-[var(--color-300)]">
@@ -471,6 +488,16 @@ export default function NewConsultationPage({
         </div>
 
         <div className="flex shrink-0 items-center gap-0.5">
+          {onView && (
+            <button
+              type="button"
+              onClick={onView}
+              title={viewTitle}
+              className="rounded-lg p-1.5 text-slate-400 transition hover:bg-[var(--color-50)] hover:text-[var(--color-700)]"
+            >
+              <ExternalLink size={15} />
+            </button>
+          )}
           <button
             type="button"
             onClick={onEdit}
@@ -630,6 +657,9 @@ export default function NewConsultationPage({
                     icon={ImageIcon}
                     label="Radio / Imagerie"
                     detail={radio.description || "Examen radiologique"}
+                    onView={
+                      radio.fichier ? () => handleOpenFile(radio.fichier) : undefined
+                    }
                     onEdit={() => {
                       setEditingRadioIndex(idx);
                       setRadioForm({

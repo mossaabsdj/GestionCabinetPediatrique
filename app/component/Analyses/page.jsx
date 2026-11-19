@@ -36,6 +36,7 @@ export default function Analyses({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [fileToDelete, setFileToDelete] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
@@ -122,12 +123,15 @@ export default function Analyses({
   const openFile = (fileName) => {
     if (!fileName) return;
     if (typeof window !== "undefined" && window?.electron?.openFile) {
-      const fullPath = basePath
-        ? `${basePath}/public/uploads/${fileName}`
-        : fileName;
-      window.electron.openFile(fullPath);
+      window.electron.openFile(fileName);
     } else if (typeof window !== "undefined") {
-      window.open(`/uploads/${fileName}`, "_blank");
+      const url =
+        fileName.startsWith("http://") ||
+        fileName.startsWith("https://") ||
+        fileName.startsWith("/")
+          ? fileName
+          : `/uploads/${fileName}`;
+      window.open(url, "_blank");
     }
   };
 
@@ -178,6 +182,8 @@ export default function Analyses({
   const handleFileChange = async (file) => {
     if (file) {
       try {
+        setUploading(true);
+        setSubmitError("");
         const uploadData = new FormData();
         uploadData.append("file", file);
 
@@ -188,9 +194,20 @@ export default function Analyses({
         if (!response.ok) {
           throw new Error("Erreur lors du téléchargement du fichier.");
         }
+        const data = await response.json();
+        const savedFilename = data.filename || file.name.replace(/\s+/g, "_");
+        setFormData((prev) => ({
+          ...prev,
+          fichier: savedFilename,
+          description: prev.description || file.name.replace(/\.[^/.]+$/, ""),
+        }));
       } catch (error) {
         console.error("Error uploading file:", error);
-        setSubmitError(error?.message || "Erreur lors du téléchargement du fichier.");
+        setSubmitError(
+          error?.message || "Erreur lors du téléchargement du fichier.",
+        );
+      } finally {
+        setUploading(false);
       }
     }
   };
@@ -378,24 +395,34 @@ export default function Analyses({
               />
             </div>
             <div>
-              <Label>Lien du fichier</Label>
+              <Label>Fichier d'analyse (Radio / Document)</Label>
               <Input
                 type="file"
+                disabled={uploading || submitting}
                 onChange={(e) => {
                   if (e.target.files?.[0]) {
-                    setFormData({ ...formData, fichier: e.target.files[0].name });
                     handleFileChange(e.target.files[0]);
                   }
                 }}
                 className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-[var(--color-500)]"
               />
+              {uploading && (
+                <p className="text-xs text-[var(--color-600)] flex items-center gap-1.5 mt-1 font-medium">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Téléchargement en cours...
+                </p>
+              )}
+              {formData.fichier && !uploading && (
+                <p className="text-xs text-emerald-600 mt-1 font-medium truncate">
+                  Fichier chargé : {formData.fichier}
+                </p>
+              )}
             </div>
 
             <DialogFooter className="mt-4">
               <Button
                 type="button"
                 variant="outline"
-                disabled={submitting}
+                disabled={submitting || uploading}
                 onClick={() => {
                   setShowAddDialogNewAnalyse(false);
                   setSubmitError("");
@@ -405,10 +432,12 @@ export default function Analyses({
               </Button>
               <Button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || uploading}
                 className="bg-[var(--color-600)] hover:bg-[var(--color-700)] text-white flex items-center gap-2"
               >
-                {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                {(submitting || uploading) && (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                )}
                 Enregistrer
               </Button>
             </DialogFooter>

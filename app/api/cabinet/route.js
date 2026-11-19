@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import param from "@/param.json";
 import path from "path";
 import { writeFile, readFile } from "fs/promises";
+import { getAppRootDir } from "@/lib/uploads";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,7 @@ const DEFAULT_CABINET_DATA = {
   cityAr: param.cityAr || "(بزاز لعلاوي) الحروش - سكيكدة",
   phones: param.phones || "0652 76 89 72 / 0562 24 40 87",
   logo: "/uploads/image.PNG",
+  numOrdre: param.numOrdre || "8130/23",
 };
 
 // =========================
@@ -54,6 +56,21 @@ export async function PUT(req) {
 
     const existing = await prisma.cabinet.findFirst();
 
+    let logoValue = (body.logo || "").trim();
+    if (logoValue) {
+      logoValue = logoValue.split(/[?#]/)[0].trim();
+      if (
+        !logoValue.startsWith("/") &&
+        !logoValue.startsWith("data:") &&
+        !logoValue.startsWith("http://") &&
+        !logoValue.startsWith("https://")
+      ) {
+        logoValue = `/uploads/${logoValue.replace(/^uploads[\\/]/, "")}`;
+      }
+    } else {
+      logoValue = "/uploads/image.PNG";
+    }
+
     const dataToSave = {
       title: body.title?.trim() || "Professeur",
       doctorName: body.doctorName?.trim() || "Professeur",
@@ -73,7 +90,8 @@ export async function PUT(req) {
       cityAr: body.cityAr?.trim() || "(بزاز لعلاوي) الحروش - سكيكدة",
       phones:
         body.phones?.trim() || "0652 76 89 72 / 0562 24 40 87",
-      logo: body.logo?.trim() || "/uploads/image.PNG",
+      logo: logoValue,
+      numOrdre: body.numOrdre !== undefined ? String(body.numOrdre).trim() : (param.numOrdre || "8130/23"),
     };
 
     let updated;
@@ -90,7 +108,7 @@ export async function PUT(req) {
 
     // Synchronize to param.json file if possible
     try {
-      const paramPath = path.join(process.cwd(), "param.json");
+      const paramPath = path.join(getAppRootDir(), "param.json");
       let currentParam = {};
       try {
         currentParam = JSON.parse(await readFile(paramPath, "utf-8"));

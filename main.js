@@ -1,11 +1,21 @@
 const { app, BrowserWindow, ipcMain, dialog } = require("electron");
 const path = require("path");
+const fs = require("fs");
+const os = require("os");
 const { fork } = require("child_process");
 const { exec } = require("child_process");
 const { shell } = require("electron");
 const { Menu } = require("electron");
 const { backupDatabase } = require("./backup");
 const { restoreDatabase, inspectBackupFile } = require("./restore");
+const {
+  getAppRootDir,
+  getPublicDir,
+  getUploadsDir,
+  resolveUploadedFilePath,
+  getImageDataUrl,
+} = require("./lib/uploads");
+
 let prisma;
 try {
   const { PrismaClient } = require("./app/generated/prisma");
@@ -15,19 +25,20 @@ try {
 }
 
 const DEFAULT_CABINET = {
-  title: "Cabinet Dentaire",
-  doctorName: "Docteur",
-  doctorNameAr: "دكتور",
-  specialty: "Chirurgien Dentiste",
-  specialtyAr: "جراحة و طب الأسنان",
-  cabinetName: "Cabinet Dentaire",
-  cabinetNameAr: "عيادة طب الأسنان",
+  title: "Professeur",
+  doctorName: "Professeur",
+  doctorNameAr: "بروفيسور",
+  specialty: "Médecin Spécialiste en Pédiatrie et Néonatologie",
+  specialtyAr: "طبيبة مختصة في طب الأطفال و حديثي الولادة",
+  cabinetName: "Cabinet Pédiatrique",
+  cabinetNameAr: "عيادة طب الأطفال",
   address: "Rue Frères KAFI logts 38, 1er étage",
   addressAr: "شارع الإخوة كافي عقار 38 الطابق الأول",
   city: "El-Harrouch SKIKDA",
   cityAr: "(بزاز لعلاوي) الحروش - سكيكدة",
   phones: "0652 76 89 72 / 0562 24 40 87",
   logo: "/uploads/image.PNG",
+  numOrdre: "8130/23",
 };
 
 let cachedCabinet = null;
@@ -232,8 +243,8 @@ function createSplashScreen() {
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
               </svg>
             </div>
-            <h1>${cachedCabinet?.title || cachedCabinet?.cabinetName || "Cabinet Dentaire"}</h1>
-            <div class="subtitle">${cachedCabinet?.specialty || "Chirurgien Dentiste"}</div>
+            <h1>${cachedCabinet?.title || cachedCabinet?.cabinetName || "Cabinet Pédiatrique"}</h1>
+            <div class="subtitle">${cachedCabinet?.specialty || "Médecin Spécialiste en Pédiatrie et Néonatologie"}</div>
             <div class="loader">
               <div class="loader-bar"></div>
             </div>
@@ -395,9 +406,18 @@ app.whenReady().then(async () => {
   // Show splash screen first
   createSplashScreen();
 
-  // Start Next.js server
+  // Start Next.js server with proper working directory and uploads env
   const serverScript = path.join(__dirname, "server.js");
-  serverProcess = fork(serverScript);
+  const appRoot = getAppRootDir();
+  const uploadsPath = getUploadsDir();
+  serverProcess = fork(serverScript, [], {
+    cwd: appRoot,
+    env: {
+      ...process.env,
+      APP_ROOT_DIR: appRoot,
+      UPLOADS_DIR: uploadsPath,
+    },
+  });
 
   // Create main window (hidden initially)
   createWindow();
@@ -422,7 +442,11 @@ app.on("window-all-closed", () => {
 });
 
 ipcMain.handle("get-app-path", () => {
-  return path.dirname(path.dirname(app.getAppPath()));
+  return getAppRootDir();
+});
+
+ipcMain.handle("get-uploads-path", () => {
+  return getUploadsDir();
 });
 
 ipcMain.handle("get-cabinet", async () => {
@@ -438,37 +462,28 @@ async function getElectronCabinet(customCab = {}) {
   }
 
   const cab = { ...DEFAULT_CABINET, ...dbCab, ...customCab };
-  const doctorName = cab.doctorName || "Docteur";
-  const doctorNameAr = cab.doctorNameAr || "دكتور";
-  const specialty = cab.specialty || "Chirurgien Dentiste";
-  const specialtyAr = cab.specialtyAr || "جراحة و طب الأسنان";
-  const cabinetName = cab.cabinetName || "Cabinet Dentaire";
-  const cabinetNameAr = cab.cabinetNameAr || "عيادة طب الأسنان";
+  const doctorName = cab.doctorName || "Professeur";
+  const doctorNameAr = cab.doctorNameAr || "بروفيسور";
+  const specialty =
+    cab.specialty || "Médecin Spécialiste en Pédiatrie et Néonatologie";
+  const specialtyAr =
+    cab.specialtyAr || "طبيبة مختصة في طب الأطفال و حديثي الولادة";
+  const cabinetName = cab.cabinetName || "Cabinet Pédiatrique";
+  const cabinetNameAr = cab.cabinetNameAr || "عيادة طب الأطفال";
   const address = cab.address || "Rue Frères KAFI logts 38, 1er étage";
   const addressAr = cab.addressAr || "شارع الإخوة كافي عقار 38 الطابق الأول";
   const city = cab.city || "El-Harrouch SKIKDA";
   const cityAr = cab.cityAr || "(بزاز لعلاوي) الحروش - سكيكدة";
   const phones = cab.phones || "0652 76 89 72 / 0562 24 40 87";
-  const logo = cab.logo || "/uploads/image.PNG";
+  const logo =
+    (customCab.logo && customCab.logo !== "/uploads/image.PNG")
+      ? customCab.logo
+      : (dbCab.logo || customCab.logo || DEFAULT_CABINET.logo || "/uploads/image.PNG");
+  const numOrdre =
+    cab.numOrdre !== undefined ? cab.numOrdre : (cab.orderNumber || "8130/23");
 
-  let imageUrl = logo;
-  if (
-    !logo.startsWith("data:") &&
-    !logo.startsWith("http://") &&
-    !logo.startsWith("https://")
-  ) {
-    const cleanPath = logo.startsWith("/") ? logo.slice(1) : logo;
-    const fs = require("fs");
-    const cwdPath = path.join(process.cwd(), "public", cleanPath);
-    let fullImagePath = cwdPath;
-    if (!fs.existsSync(cwdPath)) {
-      const basePath = app.isPackaged
-        ? path.join(path.dirname(process.execPath), "public", cleanPath)
-        : path.resolve(__dirname, "..", "app");
-      fullImagePath = path.join(basePath, "public", cleanPath);
-    }
-    imageUrl = `file://${fullImagePath.replace(/\\/g, "/").replace(/ /g, "%20")}`;
-  }
+  // Use base64 Data URL so print templates can render the logo reliably in hidden print windows
+  const imageUrl = getImageDataUrl(logo) || logo;
 
   return {
     doctorName,
@@ -483,10 +498,11 @@ async function getElectronCabinet(customCab = {}) {
     cityAr,
     phones,
     imageUrl,
+    logo: imageUrl,
+    numOrdre,
   };
 }
-const fs = require("fs");
-const os = require("os");
+
 const {
   buildOrdonnanceHtml,
   buildBilanHtml,
@@ -669,7 +685,7 @@ ipcMain.handle("backup-database", async (event, options = {}) => {
   const timestamp = new Date().toISOString().slice(0, 10);
   const { canceled, filePath } = await dialog.showSaveDialog({
     title: "Exporter la base de données sécurisée",
-    defaultPath: `backup_dentaire_${timestamp}.cbak`,
+    defaultPath: `backup_pediatrique_${timestamp}.cbak`,
     filters: [
       { name: "Sauvegarde sécurisée (*.cbak, *.enc, *.json)", extensions: ["cbak", "enc", "json"] },
       { name: "Tous les fichiers", extensions: ["*"] },
@@ -751,7 +767,42 @@ ipcMain.handle("restore-database", async (event, options = {}) => {
   }
 });
 ipcMain.handle("open-file", async (event, filePath) => {
-  await shell.openPath(filePath);
+  try {
+    if (!filePath) {
+      console.warn("[open-file] No file path provided");
+      return { success: false, error: "No file path provided" };
+    }
+
+    // Open external HTTP/HTTPS URLs directly in browser
+    if (
+      typeof filePath === "string" &&
+      (filePath.startsWith("http://") || filePath.startsWith("https://"))
+    ) {
+      await shell.openExternal(filePath);
+      return { success: true };
+    }
+
+    const resolved = resolveUploadedFilePath(filePath);
+    if (resolved && resolved.exists) {
+      const err = await shell.openPath(resolved.absolutePath);
+      if (err) {
+        console.warn("[open-file] shell.openPath returned error:", err);
+        return { success: false, error: err };
+      }
+      return { success: true, path: resolved.absolutePath };
+    } else {
+      console.warn(
+        "[open-file] File not found:",
+        filePath,
+        "resolved:",
+        resolved?.absolutePath,
+      );
+      return { success: false, error: "Fichier introuvable sur le disque" };
+    }
+  } catch (err) {
+    console.error("[open-file] Exception:", err);
+    return { success: false, error: err.message };
+  }
 });
 ipcMain.on("exit", () => {
   app.quit();

@@ -207,6 +207,7 @@ export async function POST(req) {
               cityAr: c.cityAr ?? "(بزاز لعلاوي) الحروش - سكيكدة",
               phones: c.phones ?? "0652 76 89 72 / 0562 24 40 87",
               logo: c.logo ?? "/uploads/image.PNG",
+              numOrdre: c.numOrdre ?? "8130/23",
             };
             if (c.id) {
               await tx.cabinet.upsert({
