@@ -27,6 +27,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
+  Clock,
+  Save,
+  Coins,
+  CreditCard,
+  Check,
 } from "lucide-react";
 import {
   DialogDescription,
@@ -86,6 +91,12 @@ export default function PatientDashboard() {
   const [createdConsultationData, setCreatedConsultationData] = useState(null);
   const [printingDoc, setPrintingDoc] = useState(null);
   const [DateTimeModal, setDataTimeModel] = useState(false);
+  const [defaultConsultationPrice, setDefaultConsultationPrice] = useState(2000);
+  const [modalPrice, setModalPrice] = useState("2000");
+  const [modalRecordPayment, setModalRecordPayment] = useState(true);
+  const [modalVersementInitial, setModalVersementInitial] = useState("2000");
+  const [modalVersementNote, setModalVersementNote] = useState("Versement initial (Espèces)");
+  const [modalSaveError, setModalSaveError] = useState("");
   const [viderForm, setViderForm] = useState(false);
   const [currentConsultationIndex, setCurrentConsultationIndex] = useState(0);
 
@@ -123,7 +134,7 @@ export default function PatientDashboard() {
   };
 
   const handlesaveOrdanance = (data) => {
-    setNewConsultationData({
+    const payload = {
       note: "",
       ordonnance: data.ordonnance,
       bilanRecip: data.bilanRecip,
@@ -137,7 +148,8 @@ export default function PatientDashboard() {
       saturationOxygene: "",
       glycemie: "",
       developpementPsychomoteur: "",
-    });
+    };
+    handleOpenConsultationSaveModal(payload);
   };
 
   function handleFileAdd(e) {
@@ -538,20 +550,50 @@ export default function PatientDashboard() {
     }
   };
 
+  // Load default consultation price from cabinet settings
+  useEffect(() => {
+    fetch("/api/cabinet")
+      .then((res) => res.json())
+      .then((data) => {
+        const p =
+          data?.defaultConsultationPrice !== undefined
+            ? Number(data.defaultConsultationPrice)
+            : 2000;
+        setDefaultConsultationPrice(p);
+        setModalPrice(String(p));
+        setModalVersementInitial(String(p));
+      })
+      .catch(() => {});
+  }, []);
+
   const handleSaveConsultation = () => {};
+
+  const handleOpenConsultationSaveModal = (data) => {
+    if (!data) return;
+    setNewConsultationData(data);
+    addconsultationfunction(data);
+  };
+
+  const handleCloseConsultationModal = () => {
+    setDataTimeModel(false);
+    setModalSaveError("");
+    setNewConsultationData(null);
+  };
+
   async function addconsultationfunction(data) {
     setDate(new Date().toISOString().split("T")[0]);
     setTime(new Date().toTimeString().slice(0, 5));
+    const initPrice =
+      data?.prix !== undefined && data?.prix !== ""
+        ? String(data.prix)
+        : String(defaultConsultationPrice);
+    setModalPrice(initPrice);
+    setModalRecordPayment(true);
+    setModalVersementInitial(initPrice);
+    setModalVersementNote("Versement initial (Espèces)");
+    setModalSaveError("");
     setDataTimeModel(true);
-
-    //await addConsultation(data);
   }
-
-  useEffect(() => {
-    if (!NewConsultationData) return;
-    console.log("New consultation data:" + JSON.stringify(NewConsultationData));
-    addconsultationfunction(NewConsultationData);
-  }, [NewConsultationData]);
 
   async function fetchPatients() {
     console.log("lastid" + lastid);
@@ -1092,18 +1134,20 @@ export default function PatientDashboard() {
       </motion.div>
       {/* Main Content */}
       <div className="flex-1 ml-50 p-6 px-0 pr-2 overflow-auto">
-        {/* Keyboard shortcut hint button */}
-        <motion.button
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          onClick={() => setShowShortcuts(true)}
-          className="fixed bottom-6 right-6 bg-[var(--color-600)] hover:bg-[var(--color-700)] text-white rounded-full p-4 shadow-lg z-40"
-          title="Raccourcis clavier (Ctrl+/)"
-        >
-          <Keyboard size={24} />
-        </motion.button>
+        {/* Keyboard shortcut hint button (hidden in Nouvelle Consultation where the floating save button is displayed) */}
+        {selectedtab !== "+ Nouvelle Consultation" && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setShowShortcuts(true)}
+            className="fixed bottom-6 right-6 bg-[var(--color-600)] hover:bg-[var(--color-700)] text-white rounded-full p-4 shadow-lg z-40"
+            title="Raccourcis clavier (Ctrl+/)"
+          >
+            <Keyboard size={24} />
+          </motion.button>
+        )}
 
         {/* Header */}
         <motion.div
@@ -1415,7 +1459,7 @@ export default function PatientDashboard() {
               )}
               {selectedtab === "+ Nouvelle Consultation" && (
                 <NewConsultationPage
-                  onSave={setNewConsultationData}
+                  onSave={handleOpenConsultationSaveModal}
                   selectedPatient={selectedPatient}
                   setViderForm={setViderForm}
                   viderForm={viderForm}
@@ -1457,54 +1501,257 @@ export default function PatientDashboard() {
           )}
         </AnimatePresence>
       </div>
-      <Dialog open={DateTimeModal} onOpenChange={setDataTimeModel}>
-        <DialogContent className="sm:max-w-xl w-full rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-semibold text-slate-900">
-              Programmer une consultation
+      <Dialog
+        open={DateTimeModal}
+        onOpenChange={(open) => {
+          setDataTimeModel(open);
+          if (!open) {
+            setModalSaveError("");
+            setNewConsultationData(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-2xl w-full max-h-[92vh] overflow-y-auto rounded-2xl p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl">
+          <DialogHeader className="text-left space-y-1 mb-1">
+            <DialogTitle className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2.5">
+              <span className="p-2 bg-[var(--color-100)] text-[var(--color-700)] rounded-xl">
+                <FileText className="w-5 h-5" />
+              </span>
+              Enregistrer la consultation
             </DialogTitle>
-            <DialogDescription className="text-base text-slate-500">
-              Choisissez la date et l&rsquo;heure de cette consultation avant de
-              l&rsquo;enregistrer.
+            <DialogDescription className="text-sm text-slate-500 dark:text-slate-400">
+              Vérifiez la date, l&rsquo;heure ainsi que les modalités de tarification et de règlement avant de valider.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="mt-6 space-y-5">
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              {/* Date */}
-              <label className="flex flex-col gap-1.5 text-base">
-                <span className="font-medium text-slate-700">Date</span>
+          {modalSaveError && (
+            <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl font-medium">
+              {modalSaveError}
+            </div>
+          )}
+
+          <div className="space-y-4 py-1">
+            {/* 1. Date & Heure */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40">
+              <label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200">
+                <span className="flex items-center gap-1.5">
+                  <Calendar className="w-4 h-4 text-[var(--color-600)]" />
+                  Date de la consultation
+                </span>
                 <input
                   type="date"
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-500)] focus:border-[var(--color-500)] transition-all"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm font-medium shadow-2xs focus:outline-none focus:ring-2 focus:ring-[var(--color-500)] transition-all"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                 />
               </label>
 
-              {/* Time */}
-              <label className="flex flex-col gap-1.5 text-base">
-                <span className="font-medium text-slate-700">Heure</span>
+              <label className="flex flex-col gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200">
+                <span className="flex items-center gap-1.5">
+                  <Clock className="w-4 h-4 text-[var(--color-600)]" />
+                  Heure de la consultation
+                </span>
                 <input
                   type="time"
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-500)] focus:border-[var(--color-500)] transition-all"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm font-medium shadow-2xs focus:outline-none focus:ring-2 focus:ring-[var(--color-500)] transition-all"
                   value={time}
                   onChange={(e) => setTime(e.target.value)}
                 />
               </label>
             </div>
 
-            <p className="text-sm text-slate-500">
-              Assurez-vous que la date et l&rsquo;heure sont correctes. Vous
-              pourrez modifier cette consultation plus tard si nécessaire.
-            </p>
+            {/* 2. 💰 Tarification & Règlement de la consultation */}
+            <div className="bg-gradient-to-br from-amber-50/50 via-white to-slate-50 dark:from-slate-800/80 dark:via-slate-800/60 dark:to-slate-900 p-4 sm:p-5 rounded-2xl border border-amber-200/80 dark:border-slate-700 shadow-2xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 mb-4 border-b border-amber-100 dark:border-slate-700/80">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-xl">
+                    <Coins className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                      Tarification & Règlement de la Consultation
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Prix de l&rsquo;acte médical et encaissement du versement patient
+                    </p>
+                  </div>
+                </div>
+
+                {/* Quick status preview */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Statut initial :</span>
+                  {modalRecordPayment && parseFloat(modalVersementInitial) >= parseFloat(modalPrice || 0) && parseFloat(modalPrice || 0) > 0 ? (
+                    <span className="px-2.5 py-1 text-xs font-semibold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 rounded-lg">
+                      Soldé (Payé)
+                    </span>
+                  ) : modalRecordPayment && parseFloat(modalVersementInitial) > 0 ? (
+                    <span className="px-2.5 py-1 text-xs font-semibold bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 rounded-lg">
+                      Partiellement payé
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-1 text-xs font-semibold bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 rounded-lg">
+                      Impayé (Crédit)
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Prix de la consultation */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center justify-between">
+                    <span>Prix de la consultation (DZD) *</span>
+                    <span className="text-2xs font-normal text-slate-400">
+                      Défaut cabinet : {defaultConsultationPrice.toLocaleString()} DZD
+                    </span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      step="100"
+                      value={modalPrice}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setModalPrice(val);
+                        if (modalRecordPayment && (modalVersementInitial === "" || modalVersementInitial === modalPrice)) {
+                          setModalVersementInitial(val);
+                        }
+                      }}
+                      className="w-full px-3.5 py-2.5 text-sm font-semibold rounded-xl border border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-[var(--color-500)] outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                      placeholder="Ex: 2000"
+                    />
+                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                      DZD
+                    </span>
+                  </div>
+                </div>
+
+                {/* Checkbox Activer versement initial */}
+                <div className="flex flex-col justify-end space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                    Mode d&rsquo;encaissement
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextState = !modalRecordPayment;
+                      setModalRecordPayment(nextState);
+                      if (nextState) {
+                        setModalVersementInitial(modalPrice || String(defaultConsultationPrice));
+                      }
+                    }}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border transition-all text-sm font-medium ${
+                      modalRecordPayment
+                        ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300 shadow-2xs"
+                        : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-750"
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <CreditCard className={`w-4 h-4 ${modalRecordPayment ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400"}`} />
+                      Enregistrer un versement immédiat
+                    </span>
+                    <span
+                      className={`w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold ${
+                        modalRecordPayment ? "bg-emerald-600 text-white" : "border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"
+                      }`}
+                    >
+                      {modalRecordPayment && <Check className="w-3.5 h-3.5" />}
+                    </span>
+                  </button>
+                </div>
+
+                {/* Fields when payment is enabled */}
+                {modalRecordPayment && (
+                  <>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                          Montant du versement (DZD) *
+                        </label>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setModalVersementInitial(modalPrice || String(defaultConsultationPrice))}
+                            className="text-2xs font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                          >
+                            100%
+                          </button>
+                          <span className="text-slate-300 dark:text-slate-600 text-2xs">|</span>
+                          <button
+                            type="button"
+                            onClick={() => setModalVersementInitial(String(Math.round((parseFloat(modalPrice) || 0) / 2)))}
+                            className="text-2xs font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                          >
+                            50%
+                          </button>
+                        </div>
+                      </div>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          step="100"
+                          value={modalVersementInitial}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setModalVersementInitial(val);
+                            const num = parseFloat(val);
+                            const currentP = parseFloat(modalPrice) || 0;
+                            if (!isNaN(num) && num > currentP) {
+                              setModalPrice(String(num));
+                            }
+                          }}
+                          className="w-full px-3.5 py-2.5 text-sm font-semibold rounded-xl border border-emerald-300 dark:border-emerald-700 focus:ring-2 focus:ring-emerald-500 outline-none bg-white dark:bg-slate-800 text-emerald-900 dark:text-emerald-300"
+                          placeholder="Ex: 2000"
+                        />
+                        <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                          DZD
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                        Note / Mode de règlement
+                      </label>
+                      <input
+                        type="text"
+                        value={modalVersementNote}
+                        onChange={(e) => setModalVersementNote(e.target.value)}
+                        placeholder="Ex: Espèces, Chèque, Acompte..."
+                        className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-[var(--color-500)] outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                      />
+                    </div>
+
+                    {/* Remaining Balance Indicator */}
+                    <div className="md:col-span-2 flex items-center justify-between p-3 bg-white dark:bg-slate-800/90 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+                      <span className="text-slate-600 dark:text-slate-300 font-medium">
+                        Reste à payer après enregistrement :
+                      </span>
+                      <span className={`font-bold ${
+                        Math.max(0, (parseFloat(modalPrice) || 0) - (parseFloat(modalVersementInitial) || 0)) === 0
+                          ? "text-emerald-600 dark:text-emerald-400 font-semibold"
+                          : "text-amber-600 dark:text-amber-400 font-bold"
+                      }`}>
+                        {Math.max(
+                          0,
+                          (parseFloat(modalPrice) || 0) - (parseFloat(modalVersementInitial) || 0)
+                        ).toLocaleString()}{" "}
+                        DZD
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
 
-          <DialogFooter className="mt-6 flex items-center justify-end gap-3">
+          <DialogFooter className="mt-4 flex items-center justify-end gap-3 pt-3 border-t border-slate-200 dark:border-slate-800">
             <button
               type="button"
-              onClick={() => setDataTimeModel(false)}
-              className="px-5 py-2.5 text-base rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
+              onClick={handleCloseConsultationModal}
+              className="px-5 py-2.5 text-sm font-medium rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
             >
               Annuler
             </button>
@@ -1512,17 +1759,41 @@ export default function PatientDashboard() {
             <button
               type="button"
               onClick={async () => {
+                setModalSaveError("");
+                const numPrice = parseFloat(String(modalPrice).replace(/\s+/g, "").replace(/,/g, "."));
+                if (isNaN(numPrice) || numPrice < 0) {
+                  setModalSaveError("Le prix de la consultation doit être un nombre positif ou nul.");
+                  return;
+                }
+                let initialAmount = 0;
+                if (modalRecordPayment) {
+                  initialAmount = parseFloat(String(modalVersementInitial).replace(/\s+/g, "").replace(/,/g, "."));
+                  if (isNaN(initialAmount) || initialAmount <= 0) {
+                    setModalSaveError("Le montant du versement initial doit être supérieur à zéro.");
+                    return;
+                  }
+                }
+                const finalPrice = Math.max(numPrice, initialAmount);
+                const payloadToSave = {
+                  ...NewConsultationData,
+                  prix: finalPrice,
+                  versementInitial: modalRecordPayment ? initialAmount : 0,
+                  versementNote: modalRecordPayment ? modalVersementNote : null,
+                };
+
                 setDataTimeModel(false);
+                setNewConsultationData(null);
                 try {
-                  await addConsultation(NewConsultationData);
+                  await addConsultation(payloadToSave);
                 } catch (err) {
                   console.error("Erreur enregistrement consultation:", err);
                 }
               }}
               disabled={!date || !time}
-              className="px-5 py-2.5 text-base rounded-xl bg-[var(--color-600)] text-white font-medium shadow-sm hover:bg-[var(--color-700)] disabled:opacity-60 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              className="px-5 py-2.5 text-sm rounded-xl bg-[var(--color-600)] text-white font-medium shadow-sm hover:bg-[var(--color-700)] disabled:opacity-60 disabled:cursor-not-allowed transition-colors cursor-pointer flex items-center gap-2"
             >
-              Enregistrer la consultation
+              <Save className="w-4 h-4" />
+              <span>Enregistrer la consultation</span>
             </button>
           </DialogFooter>
         </DialogContent>

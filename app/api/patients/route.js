@@ -41,6 +41,9 @@ export async function GET(request) {
               },
               radios: true,
               bilansFiles: true,
+              versements: {
+                orderBy: { date: "desc" },
+              },
             },
           },
           ordonnances: {
@@ -92,17 +95,60 @@ export async function GET(request) {
 
       return NextResponse.json(patient);
     } else {
-      // Fetch all patients
+      // Fetch all patients with consultation price and versements for accurate credit calculations
       const patients = await prisma.patient.findMany({
         orderBy: { createdAt: "desc" },
         include: {
-          consultations: false,
+          consultations: {
+            select: {
+              id: true,
+              prix: true,
+              createdAt: true,
+              motifDeConsultation: true,
+              versements: {
+                select: {
+                  id: true,
+                  montant: true,
+                  date: true,
+                },
+              },
+            },
+            orderBy: { createdAt: "desc" },
+          },
           ordonnances: false,
           bilans: false,
           paiements: false,
         },
       });
-      return NextResponse.json(patients);
+
+      // Calculate exact financial credit balances derived from consultations & versements
+      const patientsWithCredit = patients.map((p) => {
+        let totalCredit = 0;
+        let totalFacture = 0;
+        let totalPaye = 0;
+
+        (p.consultations || []).forEach((c) => {
+          const prix = Number(c.prix) || 0;
+          totalFacture += prix;
+          const versementsSum = (c.versements || []).reduce(
+            (sum, v) => sum + (Number(v.montant) || 0),
+            0
+          );
+          totalPaye += versementsSum;
+          const reste = Math.max(0, prix - versementsSum);
+          totalCredit += reste;
+        });
+
+        return {
+          ...p,
+          totalCredit,
+          totalFacture,
+          totalPaye,
+          hasCredit: totalCredit > 0,
+        };
+      });
+
+      return NextResponse.json(patientsWithCredit);
     }
   } catch (error) {
     console.error("❌ Error fetching patients:", error);

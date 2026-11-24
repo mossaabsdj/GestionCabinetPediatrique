@@ -33,6 +33,9 @@ export async function GET(req) {
         },
         justificationRecord: true,
         courbeInfo: true,
+        versements: {
+          orderBy: { date: "desc" },
+        },
         patient: { select: { id: true, nom: true } },
         rendezVous: { select: { id: true, date: true, description: true } }, // ✅ new relation
       },
@@ -106,6 +109,17 @@ export async function POST(req) {
       rendezVousId = rendezVous.id;
     }
 
+    // Determine consultation price snapshot
+    let consultationPrice =
+      data.prix !== undefined && data.prix !== null && !isNaN(parseFloat(data.prix))
+        ? Math.max(0, parseFloat(data.prix))
+        : null;
+
+    if (consultationPrice === null) {
+      const cabinet = await prisma.cabinet.findFirst();
+      consultationPrice = cabinet?.defaultConsultationPrice ?? 2000;
+    }
+
     const consultation = await prisma.consultation.create({
       data: {
         patientId: data.patientId,
@@ -113,6 +127,7 @@ export async function POST(req) {
         taille,
         poids,
         createdAt: consultDate,
+        prix: consultationPrice,
 
         tensionSystolique,
         tensionDiastolique,
@@ -226,8 +241,31 @@ export async function POST(req) {
         courbeInfo: true,
         rendezVous: true,
         radios: true,
+        versements: {
+          orderBy: { date: "desc" },
+        },
       },
     });
+
+    // Handle optional initial versement
+    const versementInitial =
+      data.versementInitial !== undefined && data.versementInitial !== null
+        ? parseFloat(data.versementInitial)
+        : 0;
+
+    if (!isNaN(versementInitial) && versementInitial > 0) {
+      const cappedMontant = Math.min(versementInitial, consultationPrice);
+      const createdVersement = await prisma.versement.create({
+        data: {
+          montant: cappedMontant,
+          patientId: Number(data.patientId),
+          consultationId: consultation.id,
+          date: consultDate,
+          note: data.versementNote?.trim() || "Versement initial à la consultation",
+        },
+      });
+      consultation.versements = [createdVersement];
+    }
 
     return NextResponse.json(consultation);
   } catch (error) {
@@ -280,6 +318,9 @@ export async function PUT(req) {
 
     // ✅ Build main consultation update data
     const updateData = {
+      ...(data.prix !== undefined && {
+        prix: data.prix !== null && !isNaN(parseFloat(data.prix)) ? Math.max(0, parseFloat(data.prix)) : 0,
+      }),
       ...(patientId !== undefined && {
         patient: { connect: { id: Number(patientId) } },
       }),

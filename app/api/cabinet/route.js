@@ -18,6 +18,7 @@ const DEFAULT_CABINET_DATA = {
   phones: "0652 76 89 72 / 0562 24 40 87",
   logo: "/uploads/image.PNG",
   numOrdre: "8130/23",
+  defaultConsultationPrice: 2000,
 };
 
 // =========================
@@ -106,6 +107,10 @@ export async function PUT(req) {
         body.numOrdre !== undefined
           ? String(body.numOrdre).trim()
           : (existing?.numOrdre || "8130/23"),
+      defaultConsultationPrice:
+        body.defaultConsultationPrice !== undefined
+          ? Math.max(0, parseFloat(body.defaultConsultationPrice) || 0)
+          : (existing?.defaultConsultationPrice ?? 2000),
     };
 
     let updated;

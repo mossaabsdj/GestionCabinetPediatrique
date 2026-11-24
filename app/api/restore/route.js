@@ -208,6 +208,10 @@ export async function POST(req) {
               phones: c.phones ?? "0652 76 89 72 / 0562 24 40 87",
               logo: c.logo ?? "/uploads/image.PNG",
               numOrdre: c.numOrdre ?? "8130/23",
+              defaultConsultationPrice:
+                c.defaultConsultationPrice !== undefined && c.defaultConsultationPrice !== null
+                  ? parseFloat(c.defaultConsultationPrice)
+                  : 2000,
             };
             if (c.id) {
               await tx.cabinet.upsert({
@@ -429,6 +433,7 @@ export async function POST(req) {
                   ? parseFloat(c.perimetreCranien)
                   : null,
                 developpementPsychomoteur: c.developpementPsychomoteur ?? null,
+                prix: c.prix !== undefined && c.prix !== null ? parseFloat(c.prix) : 0,
                 rendezVousId: c.rendezVousId ?? null,
                 createdAt: new Date(c.createdAt || Date.now()),
               };
@@ -611,6 +616,54 @@ export async function POST(req) {
                   patientId: p.patientId,
                   montant: parseFloat(p.montant),
                   date: new Date(p.date || Date.now()),
+                },
+              });
+            }
+          }
+        }
+
+        // 15b. Versements (Paiements de consultations)
+        if (Array.isArray(data.versements)) {
+          for (const v of data.versements) {
+            if (v.consultationId && v.patientId && v.montant !== undefined) {
+              await tx.versement.upsert({
+                where: { id: v.id || 0 },
+                update: {
+                  montant: parseFloat(v.montant),
+                  date: new Date(v.date || Date.now()),
+                  note: v.note ?? null,
+                  patientId: v.patientId,
+                  consultationId: v.consultationId,
+                },
+                create: {
+                  ...(v.id ? { id: v.id } : {}),
+                  montant: parseFloat(v.montant),
+                  date: new Date(v.date || Date.now()),
+                  note: v.note ?? null,
+                  patientId: v.patientId,
+                  consultationId: v.consultationId,
+                },
+              });
+            }
+          }
+        }
+
+        // 15c. Dépenses de la Clinique
+        if (Array.isArray(data.depenses)) {
+          for (const d of data.depenses) {
+            if (d.montant !== undefined && d.description) {
+              await tx.depense.upsert({
+                where: { id: d.id || 0 },
+                update: {
+                  montant: parseFloat(d.montant),
+                  description: d.description,
+                  date: new Date(d.date || Date.now()),
+                },
+                create: {
+                  ...(d.id ? { id: d.id } : {}),
+                  montant: parseFloat(d.montant),
+                  description: d.description,
+                  date: new Date(d.date || Date.now()),
                 },
               });
             }

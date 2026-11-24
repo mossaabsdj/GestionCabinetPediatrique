@@ -20,6 +20,7 @@ import {
   ShieldCheck,
   KeyRound,
   Hash,
+  Coins,
   ExternalLink,
   CheckCircle2,
   Sparkles,
@@ -76,6 +77,7 @@ const DEFAULT_CABINET_DATA = {
   cityAr: "(بزاز لعلاوي) الحروش - سكيكدة",
   phones: "0652 76 89 72 / 0562 24 40 87",
   logo: "/uploads/image.PNG",
+  defaultConsultationPrice: 2000,
 };
 
 // === Tab definitions ===
@@ -857,6 +859,28 @@ export default function ParametrePage() {
             onChange={(e) => handleCabinetChange("phones", e.target.value)}
             placeholder="Ex: 0652 76 89 72 / 0562 24 40 87"
             helper="Séparer les différents numéros par une barre oblique (/)"
+          />
+        </div>
+      </div>
+
+      {/* 5. Tarification & Honoraires de Consultation */}
+      <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-200/80 space-y-4">
+        <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+          <Coins className="w-4 h-4 text-amber-600" />
+          Tarification & Honoraires de Consultation
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Field
+            className="md:col-span-2"
+            icon={Coins}
+            type="number"
+            min="0"
+            step="100"
+            label="Prix par défaut d'une consultation (DZD)"
+            value={cabinet.defaultConsultationPrice !== undefined ? cabinet.defaultConsultationPrice : 2000}
+            onChange={(e) => handleCabinetChange("defaultConsultationPrice", e.target.value)}
+            placeholder="Ex: 2000"
+            helper="Ce montant sera chargé automatiquement par défaut lors de la création d'une nouvelle consultation (modifiable à tout moment pour chaque acte médical)."
           />
         </div>
       </div>

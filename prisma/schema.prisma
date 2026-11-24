@@ -51,6 +51,7 @@ model Patient {
   vaccinations     Vaccination[]
   justifications   Justification[]
   courbeInfos      CourbeInfo[]
+  versements       Versement[]
   createdAt        DateTime       @default(now())
 }
 
@@ -79,6 +80,8 @@ model Consultation {
   motifDeConsultation       String?
   justification             String?
   perimetreCranien          Float?
+  prix                      Float?        @default(0)
+  versements                Versement[]
   rendezVousId              Int?
   rendezVous                RendezVous?   @relation(fields: [rendezVousId], references: [id], onDelete: SetNull)
 }
@@ -302,9 +305,10 @@ model Cabinet {
   city          String?  @default("El-Harrouch SKIKDA")
   cityAr        String?  @default("(بزاز لعلاوي) الحروش - سكيكدة")
   phones        String?  @default("0652 76 89 72 / 0562 24 40 87")
-  logo          String?  @default("/uploads/image.PNG")
-  numOrdre      String?  @default("8130/23")
-  createdAt     DateTime @default(now())
+  logo                      String?  @default("/uploads/image.PNG")
+  numOrdre                  String?  @default("8130/23")
+  defaultConsultationPrice  Float?   @default(2000)
+  createdAt                 DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
 
@@ -324,4 +328,40 @@ model CourbeInfo {
   perimetreCranien Float?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
+}
+
+// ====================
+// Versements (Paiements de consultations)
+// ====================
+
+model Versement {
+  id             Int          @id @default(autoincrement())
+  montant        Float
+  date           DateTime     @default(now())
+  note           String?
+  patientId      Int
+  patient        Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  consultationId Int
+  consultation   Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([patientId])
+  @@index([consultationId])
+  @@index([date])
+}
+
+// ====================
+// Dépenses de la Clinique
+// ====================
+
+model Depense {
+  id          Int      @id @default(autoincrement())
+  montant     Float
+  description String
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([date])
 }

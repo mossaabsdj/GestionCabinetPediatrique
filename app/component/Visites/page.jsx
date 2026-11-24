@@ -1,5 +1,6 @@
 "use client";
 
+import Swal from "sweetalert2";
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import {
@@ -54,6 +55,10 @@ export default function PatientVisits({
   query,
   dateFilter,
   fetchPatientById,
+  modalOnly = false,
+  open = false,
+  setopen,
+  initialVisitIndex = 0,
 }) {
   const [visits, setVisits] = useState([]);
   const [filtredData, setfiltredData] = useState([]);
@@ -143,9 +148,12 @@ export default function PatientVisits({
       const res = await fetch(`/api/Consulter?patientId=${patientId}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erreur de chargement");
-      setVisits(data);
-      setfiltredData(data);
-      return data;
+      const sortedData = (data || []).sort(
+        (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
+      );
+      setVisits(sortedData);
+      setfiltredData(sortedData);
+      return sortedData;
     } catch (err) {
       console.error("❌ Erreur:", err);
       return [];
@@ -271,8 +279,36 @@ export default function PatientVisits({
 
   useEffect(() => {
     if (!patientId) return;
-    fetchConsultations();
-  }, [patientId]);
+    if (modalOnly) {
+      if (open) {
+        fetchConsultations().then((data) => {
+          if (!data || data.length === 0) {
+            if (setopen) setopen(false);
+            Swal.fire({
+              icon: "info",
+              title: "Aucune consultation",
+              text: "Aucune consultation trouvée pour ce patient.",
+              confirmButtonColor: "var(--color-600, #7c3aed)",
+            });
+            setSelectedVisit(null);
+          } else {
+            const idx = Math.min(initialVisitIndex || 0, data.length - 1);
+            setCurrentVisitIndex(idx);
+            setSelectedVisit(data[idx]);
+            setEditedData(data[idx]);
+            setIsEditing(false);
+            setSaveError("");
+          }
+        });
+      } else {
+        setSelectedVisit(null);
+        setIsEditing(false);
+        setDeleteConfirm(false);
+      }
+    } else {
+      fetchConsultations();
+    }
+  }, [patientId, modalOnly, open, initialVisitIndex]);
 
   // 🗑️ Delete consultation
   async function handleDelete(id) {
@@ -285,11 +321,21 @@ export default function PatientVisits({
       if (!res.ok)
         throw new Error(data.error || "Erreur lors de la suppression");
 
-      setVisits((prev) => prev.filter((v) => v.id !== id));
-      await fetchPatientById(patientId);
+      const remaining = visits.filter((v) => v.id !== id);
+      setVisits(remaining);
+      setfiltredData((prev) => prev.filter((v) => v.id !== id));
+      await fetchPatientById?.(patientId);
 
       setDeleteConfirm(false);
-      setSelectedVisit(null);
+      if (remaining.length === 0) {
+        setSelectedVisit(null);
+        if (setopen) setopen(false);
+      } else {
+        const nextIndex = Math.min(currentVisitIndex, remaining.length - 1);
+        setCurrentVisitIndex(nextIndex);
+        setSelectedVisit(remaining[nextIndex]);
+        setEditedData(remaining[nextIndex]);
+      }
     } catch (err) {
       console.error(err);
       setDeleteError(err?.message || "Erreur lors de la suppression");
@@ -399,6 +445,10 @@ export default function PatientVisits({
     setSelectedVisit(null);
     setIsEditing(false);
     setSaveError("");
+    setDeleteConfirm(false);
+    if (setopen) {
+      setopen(false);
+    }
   };
 
   // Get all medical fields (show all in edit mode, only filled in view mode)
@@ -693,6 +743,10 @@ export default function PatientVisits({
     currentVisitIndex,
   );
 
+  if (modalOnly) {
+    return renderDialogs();
+  }
+
   return (
     <div className="p-4">
       <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-[var(--color-100)]">
@@ -781,15 +835,22 @@ export default function PatientVisits({
         </div>
       </div>
 
-      {/* ====================== */}
-      {/* DETAILS DIALOG */}
-      {/* ====================== */}
-      <Dialog
-        open={!!selectedVisit}
-        onOpenChange={(open) => {
-          if (!open) handleCloseModal();
-        }}
-      >
+      {renderDialogs()}
+    </div>
+  );
+
+  function renderDialogs() {
+    return (
+      <>
+        {/* ====================== */}
+        {/* DETAILS DIALOG */}
+        {/* ====================== */}
+        <Dialog
+          open={modalOnly ? !!open && !!selectedVisit : !!selectedVisit}
+          onOpenChange={(isOpen) => {
+            if (!isOpen) handleCloseModal();
+          }}
+        >
         <DialogContent className="[&>button]:hidden w-[96vw] max-w-[96vw] sm:max-w-[95vw] md:max-w-[92vw] lg:max-w-6xl xl:max-w-7xl max-h-[92vh] bg-white rounded-2xl p-0 gap-0 flex flex-col overflow-hidden shadow-2xl border border-[var(--color-100)]">
           {selectedVisit && (
             <>
@@ -1368,6 +1429,7 @@ export default function PatientVisits({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
+}
 }

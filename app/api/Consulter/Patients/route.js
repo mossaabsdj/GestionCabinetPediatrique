@@ -19,6 +19,9 @@ export async function GET() {
               },
             },
             bilanRecip: true,
+            versements: {
+              orderBy: { date: "asc" },
+            },
             rendezVous: { select: { id: true, date: true, description: true } }, // ✅ include new relation
           },
         },
@@ -60,6 +63,13 @@ export async function GET() {
         developpementPsychomoteur: c.developpementPsychomoteur || null, // ✅ new field
         motifDeConsultation: c.motifDeConsultation || null, // ✅ new field
         perimetreCranien: c.perimetreCranien || null, // ✅ new field
+        prix: c.prix !== null && c.prix !== undefined ? c.prix : 0,
+        versements: (c.versements || []).map((v) => ({
+          id: v.id,
+          montant: v.montant,
+          date: v.date,
+          note: v.note,
+        })),
         createdAt: c.createdAt,
 
         rendezVous: c.rendezVous

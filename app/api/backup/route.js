@@ -28,6 +28,8 @@ async function fetchAllData() {
     justificationTypes,
     cabinets,
     courbeInfos,
+    versements,
+    depenses,
   ] = await Promise.all([
     prisma.patient.findMany(),
     prisma.consultation.findMany(),
@@ -51,6 +53,8 @@ async function fetchAllData() {
     prisma.justificationType.findMany(),
     prisma.cabinet.findMany(),
     prisma.courbeInfo ? prisma.courbeInfo.findMany().catch(() => []) : Promise.resolve([]),
+    prisma.versement ? prisma.versement.findMany().catch(() => []) : Promise.resolve([]),
+    prisma.depense ? prisma.depense.findMany().catch(() => []) : Promise.resolve([]),
   ]);
 
   return {
@@ -87,6 +91,8 @@ async function fetchAllData() {
       justifications,
       vaccinations,
       paiements,
+      versements: versements || [],
+      depenses: depenses || [],
       radios,
       bilanFiles,
       courbeInfos: courbeInfos || [],

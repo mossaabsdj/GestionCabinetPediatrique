@@ -42,6 +42,7 @@ const DEFAULT_CABINET = {
   phones: "0652 76 89 72 / 0562 24 40 87",
   logo: "/uploads/image.PNG",
   numOrdre: "8130/23",
+  defaultConsultationPrice: 2000,
 };
 
 let cachedCabinet = null;

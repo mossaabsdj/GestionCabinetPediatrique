@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
+import { motion } from "framer-motion";
 import {
   Save,
   AlertCircle,
@@ -80,6 +81,38 @@ export default function NewConsultationPage({
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // Dynamic Content Check (determines if consultation has data to save)
+  const hasConsultationContent = useMemo(() => {
+    // 1. Textual content
+    if (form.motifDeConsultation && form.motifDeConsultation.trim() !== "") return true;
+    if (form.note && form.note.trim() !== "") return true;
+
+    // 2. Vitals / Measurements
+    if (form.poids && String(form.poids).trim() !== "") return true;
+    if (form.taille && String(form.taille).trim() !== "") return true;
+    if (form.temperature && String(form.temperature).trim() !== "") return true;
+    if (form.tensionSystolique && String(form.tensionSystolique).trim() !== "") return true;
+    if (form.tensionDiastolique && String(form.tensionDiastolique).trim() !== "") return true;
+    if (form.frequenceCardiaque && String(form.frequenceCardiaque).trim() !== "") return true;
+    if (form.frequenceRespiratoire && String(form.frequenceRespiratoire).trim() !== "") return true;
+    if (form.saturationOxygene && String(form.saturationOxygene).trim() !== "") return true;
+    if (form.glycemie && String(form.glycemie).trim() !== "") return true;
+    if (form.perimetreCranien && String(form.perimetreCranien).trim() !== "") return true;
+    if (form.developpementPsychomoteur && form.developpementPsychomoteur.trim() !== "") return true;
+
+    // 3. Clinical attachments
+    if (form.ordonnance && Object.keys(form.ordonnance).length > 0 && form.ordonnance.items?.length > 0) return true;
+    if (form.bilanRecip && Object.keys(form.bilanRecip).length > 0 && form.bilanRecip.items?.length > 0) return true;
+    if (form.justification && (form.justification.texte || form.justification.nom)) return true;
+    if (form.radios && form.radios.length > 0) return true;
+    if (form.rendezVousDate && String(form.rendezVousDate).trim() !== "") return true;
+
+    return false;
+  }, [form]);
+
+  // Dynamic active / inactive state
+  const canSave = hasConsultationContent && !saving;
 
   // Sub-modal states
   const [showNewOrdonnance, setShowNewOrdonnance] = useState(false);
@@ -203,6 +236,13 @@ export default function NewConsultationPage({
 
   async function handleSave() {
     setError("");
+    if (saving) return;
+    if (!hasConsultationContent) {
+      setError(
+        "Veuillez renseigner au moins un élément (motif, notes, constantes ou prescriptions) avant d'enregistrer."
+      );
+      return;
+    }
     setSaving(true);
     try {
       await Promise.resolve(onSave?.({ ...form }));
@@ -796,13 +836,17 @@ export default function NewConsultationPage({
           </div>
         </div>
 
-        {/* Save Button */}
-        <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-700">
+        {/* Save Button
+         <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-700">
           <Button
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--color-600)] text-white hover:bg-[var(--color-700)] shadow-md disabled:opacity-60 transition-all font-medium text-sm"
+            className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl shadow-md transition-all font-medium text-sm cursor-pointer ${
+              canSave
+                ? "bg-[var(--color-600)] text-white hover:bg-[var(--color-700)] shadow-md hover:shadow-lg"
+                : "bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-300 dark:hover:bg-slate-600 opacity-75"
+            }`}
           >
             {saving ? (
               <>
@@ -816,7 +860,8 @@ export default function NewConsultationPage({
               </>
             )}
           </Button>
-        </div>
+        </div> */}
+       
       </div>
 
       {/* ======================================================== */}
@@ -1191,6 +1236,64 @@ export default function NewConsultationPage({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ======================================================== */}
+      {/* 🎯 BOUTON FLOTTANT D'ENREGISTREMENT DE LA CONSULTATION   */}
+      {/* Remplace le bouton des raccourcis clavier dans cette vue */}
+      {/* Dispose d'un état actif et inactif dynamique             */}
+      {/* ======================================================== */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.8, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ type: "spring", stiffness: 300, damping: 20 }}
+        className="fixed bottom-6 right-6 z-40"
+      >
+        <motion.button
+          type="button"
+          onClick={handleSave}
+          disabled={saving}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          title={
+            saving
+              ? "Enregistrement de la consultation en cours..."
+              : canSave
+              ? "Enregistrer la consultation"
+              : "Veuillez renseigner un motif, des mesures ou des prescriptions pour activer l'enregistrement"
+          }
+          className={`group flex items-center gap-2.5 px-5 py-3.5 rounded-full shadow-lg transition-all duration-300 font-semibold text-sm select-none cursor-pointer ${
+            saving
+              ? "bg-[var(--color-600)] text-white opacity-90 cursor-wait shadow-md"
+              : canSave
+              ? "bg-gradient-to-r from-[var(--color-600)] to-[var(--color-700)] text-white shadow-xl hover:shadow-2xl ring-4 ring-[var(--color-500)]/25"
+              : "bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border border-slate-300/70 dark:border-slate-600 shadow-none opacity-70 hover:opacity-90"
+          }`}
+        >
+          {saving ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin text-white" />
+              <span className="hidden sm:inline font-bold">Enregistrement...</span>
+            </>
+          ) : (
+            <>
+              <Save
+                className={`w-5 h-5 transition-transform duration-200 ${
+                  canSave ? "scale-110 text-white" : "opacity-60"
+                }`}
+              />
+              <span className="font-bold">
+                {canSave ? "Enregistrer" : "Enregistrer"}
+              </span>
+              {canSave && (
+                <span className="relative flex h-2 w-2 ml-0.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+                </span>
+              )}
+            </>
+          )}
+        </motion.button>
+      </motion.div>
     </div>
   );
 }
