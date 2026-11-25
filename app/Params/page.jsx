@@ -448,6 +448,84 @@ export default function ParametrePage() {
     }
   };
 
+  // === Show Restore Success Modal with Dynamic Resume ===
+  const showRestoreSuccess = (resume) => {
+    if (!resume) {
+      showAlert(
+        "success",
+        "Restauration réussie !",
+        "Toutes les données ont été déchiffrées et restaurées avec succès.",
+      );
+      return;
+    }
+
+    const labels = [
+      { key: "patients", label: "Patients", icon: "👤" },
+      { key: "consultations", label: "Consultations", icon: "🩺" },
+      { key: "ordonnances", label: "Ordonnances", icon: "📋" },
+      { key: "versements", label: "Versements", icon: "💰" },
+      { key: "paiements", label: "Paiements", icon: "💳" },
+      { key: "depenses", label: "Dépenses", icon: "📉" },
+      { key: "medicaments", label: "Médicaments", icon: "💊" },
+      { key: "bilans", label: "Bilans médicaux", icon: "🔬" },
+      { key: "vaccinations", label: "Vaccinations", icon: "💉" },
+      { key: "justifications", label: "Justificatifs", icon: "📄" },
+      { key: "rendezVous", label: "Rendez-vous", icon: "📅" },
+      { key: "radios", label: "Radiographies", icon: "🩻" },
+      { key: "bilanFiles", label: "Fichiers bilans", icon: "📁" },
+      { key: "courbeInfos", label: "Mesures & Courbes", icon: "📈" },
+      { key: "cabinets", label: "Paramètres cabinet", icon: "🏥" },
+    ];
+
+    const activeRows = labels
+      .filter((item) => resume[item.key] !== undefined && Number(resume[item.key]) > 0)
+      .map(
+        (item) => `
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 7px 12px; background: #ffffff; border-radius: 8px; margin-bottom: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); font-size: 13px;">
+            <span style="display: flex; align-items: center; gap: 8px; color: #334155; font-weight: 500;">
+              <span>${item.icon}</span> ${item.label}
+            </span>
+            <span style="font-weight: 700; color: #059669; background: #ecfdf5; padding: 2px 8px; border-radius: 12px; border: 1px solid #a7f3d0;">
+              ${Number(resume[item.key]).toLocaleString("fr-FR")}
+            </span>
+          </div>
+        `
+      )
+      .join("");
+
+    const totalCount =
+      resume.total !== undefined
+        ? Number(resume.total)
+        : Object.values(resume).reduce(
+            (acc, val) => (typeof val === "number" ? acc + val : acc),
+            0,
+          );
+
+    Swal.fire({
+      icon: "success",
+      title: "Restauration réussie !",
+      html: `
+        <div style="text-align: left; font-family: inherit;">
+          <p style="margin-bottom: 12px; color: #166534; font-size: 14px; font-weight: 600; text-align: center;">
+            Toutes les données ont été importées et restaurées avec succès !
+          </p>
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; max-height: 280px; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #cbd5e1; font-weight: 700; font-size: 13px; color: #1e293b;">
+              <span>Éléments importés</span>
+              <span style="color: #047857;">Total : ${totalCount.toLocaleString("fr-FR")}</span>
+            </div>
+            ${
+              activeRows ||
+              `<p style="color: #64748b; font-size: 12px; text-align: center;">Aucun élément détaillé.</p>`
+            }
+          </div>
+        </div>
+      `,
+      confirmButtonText: "Terminer",
+      confirmButtonColor: "#059669",
+    });
+  };
+
   // === Handle Restore ===
   const handleRestoreClick = async () => {
     try {
@@ -501,11 +579,7 @@ export default function ParametrePage() {
 
         if (result?.canceled) return;
         if (result?.success) {
-          showAlert(
-            "success",
-            "Restauration réussie !",
-            "Toutes les données ont été déchiffrées, validées et restaurées avec succès.",
-          );
+          showRestoreSuccess(result?.resume);
         } else {
           throw new Error(result?.message || "Échec de l'importation.");
         }
@@ -531,6 +605,7 @@ export default function ParametrePage() {
     try {
       setLoadingRestore(true);
       const formData = new FormData();
+      formData.append("file", file);
       formData.append("backupFile", file);
 
       let res = await fetch("/api/restore", {
@@ -540,15 +615,53 @@ export default function ParametrePage() {
 
       let data = await res.json().catch(() => ({}));
 
+      // If password is required for encrypted backup
+      if (
+        !res.ok &&
+        data?.error &&
+        (data.error.includes("Mot de passe") ||
+          data.error.includes("déchiffrer") ||
+          data.error.includes("altéré"))
+      ) {
+        setLoadingRestore(false);
+        const { value: customPwd } = await Swal.fire({
+          title: "Mot de passe requis",
+          text: "Cette sauvegarde a été chiffrée avec un mot de passe. Veuillez saisir le mot de passe de cette sauvegarde :",
+          input: "password",
+          inputPlaceholder: "Mot de passe de la sauvegarde",
+          showCancelButton: true,
+          confirmButtonText: "Déchiffrer et restaurer",
+          cancelButtonText: "Annuler",
+          confirmButtonColor: "#059669",
+          cancelButtonColor: "#6b7280",
+          inputValidator: (val) => {
+            if (!val) {
+              return "Le mot de passe est obligatoire.";
+            }
+          },
+        });
+
+        if (!customPwd) return;
+
+        setLoadingRestore(true);
+        const retryFormData = new FormData();
+        retryFormData.append("file", file);
+        retryFormData.append("backupFile", file);
+        retryFormData.append("password", customPwd);
+
+        res = await fetch("/api/restore", {
+          method: "POST",
+          body: retryFormData,
+        });
+
+        data = await res.json().catch(() => ({}));
+      }
+
       if (!res.ok) {
         throw new Error(data.error || "Erreur lors de la restauration.");
       }
 
-      showAlert(
-        "success",
-        "Restauration réussie !",
-        "Toutes les données ont été déchiffrées et restaurées avec succès.",
-      );
+      showRestoreSuccess(data?.resume);
     } catch (error) {
       console.error(error);
       showAlert(

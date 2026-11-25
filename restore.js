@@ -38,7 +38,7 @@ async function restoreDatabase(filePath, password = null) {
     }
 
     console.log("✅ Database restored successfully from:", filePath);
-    return { success: true, message: result.message };
+    return { success: true, message: result.message, resume: result.resume };
   } catch (error) {
     console.error("❌ Restore failed:", error.message);
     throw error;

@@ -772,6 +772,7 @@ ipcMain.handle("restore-database", async (event, options = {}) => {
     return {
       success: true,
       message: result.message || "Base de données restaurée avec succès.",
+      resume: result.resume,
     };
   } catch (err) {
     return { success: false, message: err.message };

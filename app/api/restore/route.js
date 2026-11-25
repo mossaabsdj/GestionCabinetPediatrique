@@ -124,8 +124,21 @@ export async function POST(req) {
 
     if (contentType.includes("multipart/form-data")) {
       const formData = await req.formData();
-      const file = formData.get("file");
+      let file =
+        formData.get("file") ||
+        formData.get("backupFile") ||
+        formData.get("backup") ||
+        formData.get("data");
       password = formData.get("password");
+
+      if (!file) {
+        for (const [key, value] of formData.entries()) {
+          if (value && typeof value === "object" && typeof value.text === "function") {
+            file = value;
+            break;
+          }
+        }
+      }
 
       if (!file) {
         return NextResponse.json(
@@ -184,6 +197,34 @@ export async function POST(req) {
       );
     }
 
+    // Dynamic counts tracker for resume (no hardcoding)
+    const counts = {
+      cabinets: 0,
+      medicaments: 0,
+      bilans: 0,
+      vaccines: 0,
+      justificationTypes: 0,
+      bilanTypes: 0,
+      bilanTypeItems: 0,
+      recetteTypes: 0,
+      recetteTypeItems: 0,
+      rendezVous: 0,
+      patients: 0,
+      consultations: 0,
+      ordonnances: 0,
+      ordonnanceItems: 0,
+      bilanRecips: 0,
+      bilanItems: 0,
+      justifications: 0,
+      vaccinations: 0,
+      paiements: 0,
+      versements: 0,
+      depenses: 0,
+      radios: 0,
+      bilanFiles: 0,
+      courbeInfos: 0,
+    };
+
     // Restore sequentially in proper FK order inside a transaction
     await prisma.$transaction(
       async (tx) => {
@@ -219,6 +260,7 @@ export async function POST(req) {
                 update: cabData,
                 create: { id: c.id, ...cabData },
               });
+              counts.cabinets++;
             }
           }
         }
@@ -232,6 +274,7 @@ export async function POST(req) {
                 update: { nom: m.nom },
                 create: { ...(m.id ? { id: m.id } : {}), nom: m.nom },
               });
+              counts.medicaments++;
             }
           }
         }
@@ -245,6 +288,7 @@ export async function POST(req) {
                 update: { nom: b.nom },
                 create: { ...(b.id ? { id: b.id } : {}), nom: b.nom },
               });
+              counts.bilans++;
             }
           }
         }
@@ -259,6 +303,7 @@ export async function POST(req) {
                 update: { name: vName },
                 create: { ...(v.id ? { id: v.id } : {}), name: vName },
               });
+              counts.vaccines++;
             }
           }
         }
@@ -276,6 +321,7 @@ export async function POST(req) {
                   texte: jt.texte || "",
                 },
               });
+              counts.justificationTypes++;
             }
           }
         }
@@ -289,6 +335,7 @@ export async function POST(req) {
                 update: { nom: bt.nom },
                 create: { ...(bt.id ? { id: bt.id } : {}), nom: bt.nom },
               });
+              counts.bilanTypes++;
             }
           }
         }
@@ -310,6 +357,7 @@ export async function POST(req) {
                   remarque: bti.remarque ?? null,
                 },
               });
+              counts.bilanTypeItems++;
             }
           }
         }
@@ -323,6 +371,7 @@ export async function POST(req) {
                 update: { nom: rt.nom },
                 create: { ...(rt.id ? { id: rt.id } : {}), nom: rt.nom },
               });
+              counts.recetteTypes++;
             }
           }
         }
@@ -350,6 +399,7 @@ export async function POST(req) {
                   quantite: rti.quantite ?? null,
                 },
               });
+              counts.recetteTypeItems++;
             }
           }
         }
@@ -370,6 +420,7 @@ export async function POST(req) {
                   description: rdv.description ?? null,
                 },
               });
+              counts.rendezVous++;
             }
           }
         }
@@ -397,6 +448,7 @@ export async function POST(req) {
                 update: pData,
                 create: { ...(p.id ? { id: p.id } : {}), ...pData },
               });
+              counts.patients++;
             }
           }
         }
@@ -442,6 +494,7 @@ export async function POST(req) {
                 update: cData,
                 create: { ...(c.id ? { id: c.id } : {}), ...cData },
               });
+              counts.consultations++;
             }
           }
         }
@@ -464,6 +517,7 @@ export async function POST(req) {
                   createdAt: new Date(o.createdAt || Date.now()),
                 },
               });
+              counts.ordonnances++;
             }
           }
         }
@@ -491,6 +545,7 @@ export async function POST(req) {
                   quantite: oi.quantite ? parseInt(oi.quantite) : null,
                 },
               });
+              counts.ordonnanceItems++;
             }
           }
         }
@@ -513,6 +568,7 @@ export async function POST(req) {
                   createdAt: new Date(br.createdAt || Date.now()),
                 },
               });
+              counts.bilanRecips++;
             }
           }
         }
@@ -536,6 +592,7 @@ export async function POST(req) {
                   remarque: bi.remarque ?? null,
                 },
               });
+              counts.bilanItems++;
             }
           }
         }
@@ -568,6 +625,7 @@ export async function POST(req) {
                   createdAt: new Date(j.createdAt || Date.now()),
                 },
               });
+              counts.justifications++;
             }
           }
         }
@@ -596,6 +654,7 @@ export async function POST(req) {
                   createdAt: new Date(v.createdAt || Date.now()),
                 },
               });
+              counts.vaccinations++;
             }
           }
         }
@@ -618,6 +677,7 @@ export async function POST(req) {
                   date: new Date(p.date || Date.now()),
                 },
               });
+              counts.paiements++;
             }
           }
         }
@@ -644,6 +704,7 @@ export async function POST(req) {
                   consultationId: v.consultationId,
                 },
               });
+              counts.versements++;
             }
           }
         }
@@ -666,6 +727,7 @@ export async function POST(req) {
                   date: new Date(d.date || Date.now()),
                 },
               });
+              counts.depenses++;
             }
           }
         }
@@ -691,6 +753,7 @@ export async function POST(req) {
                 createdAt: new Date(r.createdAt || Date.now()),
               },
             });
+            counts.radios++;
           }
         }
 
@@ -716,6 +779,7 @@ export async function POST(req) {
                 createdAt: new Date(bf.createdAt || Date.now()),
               },
             });
+            counts.bilanFiles++;
           }
         }
 
@@ -743,6 +807,7 @@ export async function POST(req) {
                 createdAt: new Date(ci.createdAt || Date.now()),
               },
             });
+            counts.courbeInfos++;
           }
         }
 
@@ -757,9 +822,16 @@ export async function POST(req) {
     // Double-check sequence synchronization on the main client
     await syncAutoIncrementSequences(prisma);
 
+    const totalRestored = Object.values(counts).reduce((a, b) => a + b, 0);
+    const resume = {
+      ...counts,
+      total: totalRestored,
+    };
+
     return NextResponse.json({
       success: true,
       message: "Base de données restaurée avec succès.",
+      resume,
     });
   } catch (error) {
     console.error("Restore API Error:", error);
